@@ -1,5 +1,5 @@
 <component name="libraryTable">
-  <library name="djep-1.0.0">
+  <library name="PeerSim">
     <CLASSES>
       <root url="jar://$PROJECT_DIR$/libs/djep-1.0.0.jar!/" />
       <root url="jar://$PROJECT_DIR$/libs/jep-2.3.0.jar!/" />

@@ -1,0 +1,6 @@
+random.seed 34245324
+network.size 10000
+MINUTE = 6*10
+simulation.cycles MINUTE
+
+protocol.cyclon poldercast.CyclonProtocol

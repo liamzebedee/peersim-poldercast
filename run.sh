@@ -1,1 +1,3 @@
-java peersim.Simulator config1.txt
+#!/bin/bash
+export CLASSPATH=./bin:./libs/*
+java -Xmx2g peersim.Simulator config1.txt
