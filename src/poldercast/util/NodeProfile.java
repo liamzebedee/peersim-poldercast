@@ -28,6 +28,8 @@ public class NodeProfile extends GeneralNode implements SizeInBits {
         this.age++;
     }
 
+    public void resetAge() { this.age = 0; }
+
     public int getSizeInBits() {
         int size = 0;
         size += this.id.BITS;
