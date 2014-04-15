@@ -1,0 +1,6 @@
+PeerSim can run cycle-based and event-based simulations
+Network consists of Nodes
+Each Node has a list of Protocols
+Simulation is started by building the network by constructing one initial node (the prototype), constructing all of its protocols (prototypes) and then cloning it until the desired network size is reached
+Initialisers are then run on each individual node/protocol
+The network is then started, and Controls observe/modify stuff

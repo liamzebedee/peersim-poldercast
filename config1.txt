@@ -1,6 +1,32 @@
+MINUTE = 6*10
+
+########################################################### GENERAL SIMULATION SECTION
 random.seed 34245324
 network.size 10000
-MINUTE = 6*10
 simulation.cycles MINUTE
 
-protocol.cyclon poldercast.CyclonProtocol
+network.node poldercast.util.PolderCastNode
+
+########################################################### PROTOCOLS SECTION
+protocol.trans           peersim.transport.UniformRandomTransport
+{
+  mindelay               0
+  maxdelay               100
+}
+
+protocol.cyclon poldercast.protocols.CyclonProtocol
+{
+    transport trans
+}
+
+
+########################################################### INITIALIZERS SECTION
+# this initializer assigns each node an ID
+init.poldercastIdAssigner poldercast.initializers.PolderCastIdAssigner
+
+# the ordered sequence of initializers that must be run
+include.init poldercastIdAssigner
+
+########################################################### CONTROLS SECTION
+
+
