@@ -5,11 +5,11 @@ import java.util.ArrayList;
 public class GossipMsg implements SizeInBits {
     private final ArrayList<NodeProfile> profiles;
     private final Types type;
-    private final NodeProfile sender;
+    private final PolderCastNode sender;
 
     public enum Types { GOSSIP_QUERY, GOSSIP_RESPONSE }
 
-    public GossipMsg(ArrayList<NodeProfile> profiles, Types type, NodeProfile sender) {
+    public GossipMsg(ArrayList<NodeProfile> profiles, Types type, PolderCastNode sender) {
         this.profiles = profiles;
         this.type = type;
         this.sender = sender;
@@ -27,7 +27,7 @@ public class GossipMsg implements SizeInBits {
         return (ArrayList<NodeProfile>) this.profiles.clone();
     }
 
-    public NodeProfile getSender() {
+    public PolderCastNode getSender() {
         return this.sender;
     }
 }

@@ -1,26 +1,29 @@
 package poldercast.util;
 
+import peersim.core.CommonState;
 import peersim.core.GeneralNode;
 
 import java.util.Map;
 
-public class NodeProfile extends GeneralNode implements SizeInBits {
+public class NodeProfile implements SizeInBits {
     private int age;
-    // ip (not needed)
-    private final ID id;
+    private ID id;
     // mapping between topic ID and priority of finding nodes for that topic
     private Map<ID, Byte> interests;
+    private PolderCastNode node;
 
-    public NodeProfile(String prefix, byte[] ip, ID id, Map<ID,Byte> interests) {
-        super(prefix);
+    public NodeProfile(PolderCastNode node, ID id, Map<ID,Byte> interests) {
         this.age = 0;
         this.id = id;
         this.interests = interests;
+        // NOTE in the real implementation, this would include network details, but this isn't necessary here
+        // instead we use the node to send messages via the @Link{Transport}
+        this.node = node;
     }
 
     public int getAge() { return age; }
 
-    public ID getId() {
+    public ID getID() {
         return id;
     }
 
@@ -39,4 +42,6 @@ public class NodeProfile extends GeneralNode implements SizeInBits {
         }
         return size;
     }
+
+    public PolderCastNode getNode() { return node; }
 }

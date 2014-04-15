@@ -3,17 +3,18 @@ package poldercast.protocols;
 import peersim.cdsim.CDProtocol;
 import peersim.config.Configuration;
 import peersim.config.FastConfig;
+import peersim.core.Linkable;
 import peersim.core.Node;
 import peersim.edsim.EDProtocol;
 import peersim.transport.Transport;
+import poldercast.initializers.PolderCastIdAssigner;
 import poldercast.util.GossipMsg;
 import poldercast.util.NodeProfile;
 import poldercast.util.PolderCastNode;
-import poldercast.util.PublishMsg;
 
 import java.util.ArrayList;
 
-public class CyclonProtocol implements EDProtocol, CDProtocol {
+public class CyclonProtocol implements EDProtocol, CDProtocol, Linkable {
     private int bitsSent = 0;
     private int bitsReceived = 0;
     private int messagesSent = 0;
@@ -26,7 +27,6 @@ public class CyclonProtocol implements EDProtocol, CDProtocol {
 
     public CyclonProtocol(String configPrefix) {
         this.protocolID = Configuration.lookupPid(CYCLON);
-        System.out.println(this.protocolID);
     }
 
     @Override
@@ -42,13 +42,14 @@ public class CyclonProtocol implements EDProtocol, CDProtocol {
 
     public void nextCycle(Node node, int protocolID) {
         PolderCastNode thisNode = (PolderCastNode) node;
+        CyclonProtocol protocol = (CyclonProtocol) thisNode.getProtocol(protocolID);
+
         // Increment the age of all nodes
         for(NodeProfile profile : this.routingTable) {
             profile.incrementAge();
         }
 
         // Gossip
-        CyclonProtocol protocol = (CyclonProtocol) node.getProtocol(protocolID);
         GossipMsg msg = new GossipMsg((ArrayList<NodeProfile>) routingTable.clone(), GossipMsg.Types.GOSSIP_QUERY, thisNode);
         protocol.bitsSent += msg.getSizeInBits();
         protocol.messagesSent++;
@@ -58,12 +59,13 @@ public class CyclonProtocol implements EDProtocol, CDProtocol {
             if(profile.getAge() > oldestNode.getAge()) oldestNode = profile;
         }
 
-        protocol.sendMsg(thisNode, oldestNode, msg);
+        protocol.sendMsg(thisNode, oldestNode.getNode(), msg);
     }
 
     public void processEvent(Node node, int protocolID, java.lang.Object event) {
-        CyclonProtocol protocol = (CyclonProtocol) node.getProtocol(this.protocolID);
         PolderCastNode thisNode = (PolderCastNode) node;
+        CyclonProtocol protocol = (CyclonProtocol) thisNode.getProtocol(protocolID);
+
         if(event instanceof GossipMsg) {
             GossipMsg receivedGossipMsg = (GossipMsg) event;
             protocol.bitsReceived += receivedGossipMsg.getSizeInBits();
@@ -73,7 +75,7 @@ public class CyclonProtocol implements EDProtocol, CDProtocol {
             for(NodeProfile profile : profilesReceived) {
                 profile.resetAge();
                 // Remove our profile if any
-                if(profile.getId().equals(thisNode.getID())) profilesReceived.remove(profile);
+                if(profile.getID().equals(thisNode.getID())) profilesReceived.remove(profile);
             }
 
             // Remove any duplicates before we add
@@ -86,7 +88,6 @@ public class CyclonProtocol implements EDProtocol, CDProtocol {
                 // Remove from the front of the list, as we favour new nodes over old ones
                 this.routingTable.remove(0);
             }
-
 
             // Send a reply
             GossipMsg replyGossipMsg = new GossipMsg((ArrayList<NodeProfile>) this.routingTable.clone(),
@@ -110,4 +111,47 @@ public class CyclonProtocol implements EDProtocol, CDProtocol {
         Transport t = getTransportForProtocol(from, protocolID);
         t.send(from, to, msg, protocolID);
     }
+
+    /*
+     * Performs cleanup when removed from the network.
+     * This is called by the host node when its fail state is set to Fallible.DEAD.
+     * It is very important that after calling this method,
+     * NONE of the methods of the implementing object are guaranteed to work any longer.
+     * They might throw arbitrary exceptions, etc. The idea is that after calling this, typically no one should access this object.
+     * However, as a recommendation, at least toString should be guaranteed to execute normally, to aid debugging.
+     */
+    public void onKill() {
+        
+    }
+
+    // Add a neighbor to the current set of neighbors.
+    public boolean addNeighbor(Node neighbour) {
+        NodeProfile profile = ((PolderCastNode)neighbour).getNodeProfile();
+        if(this.routingTable.contains(profile)) {
+            return false;
+        } else {
+            this.routingTable.add(profile);
+            return true;
+        }
+    }
+
+    // Returns true if the given node is a member of the neighbor set.
+    public boolean contains(Node neighbor) {
+        NodeProfile profile = ((PolderCastNode)neighbor).getNodeProfile();
+        return this.routingTable.contains(neighbor);
+    }
+
+    // Returns the size of the neighbor list.
+    public int degree() {
+        return this.routingTable.size();
+    }
+
+    // Returns the neighbor with the given index.
+    public Node getNeighbor(int i) {
+        return this.routingTable.get(i).getNode();
+    }
+
+    // A possibility for optimization.
+    public void pack() {}
+
 }
