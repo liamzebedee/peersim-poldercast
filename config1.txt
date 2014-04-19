@@ -1,15 +1,15 @@
-SIZE 50
+SIZE 8
+
+NUM_BOOTSTRAP_NODES 4
 
 # parameters of periodic execution
-CYCLES (SIZE*4 + SIZE*5) * 10
+CYCLES 4*CYCLE
 CYCLE 1
 ENDTIME CYCLE*CYCLES
 
 # parameters of message transfer
-# delay values here are relative to cycle length, in percentage,
-# eg 50 means half the cycle length, 200 twice the cycle length, etc.
 MINDELAY 1*CYCLE
-MAXDELAY 5*CYCLE
+MAXDELAY 1*CYCLE
 
 
 ########################################################### GENERAL SIMULATION SECTION
@@ -39,7 +39,7 @@ init.poldercastIdAssigner poldercast.initializers.PolderCastIdAssigner
 
 init.bootstrapper WireKOut
 init.bootstrapper.protocol cyclon
-init.bootstrapper.k 4
+init.bootstrapper.k NUM_BOOTSTRAP_NODES
 init.bootstrapper.undir true
 
 init.cycleScheduler CDScheduler
@@ -65,4 +65,9 @@ control.viewStats poldercast.controls.ViewStats
     step  ENDTIME-CYCLE
     protocol cyclon
 }
-include.control viewStats
+control.netStats poldercast.controls.NetStats
+{
+    step  ENDTIME-CYCLE
+    protocol cyclon
+}
+include.control viewStats netStats

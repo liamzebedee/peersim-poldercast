@@ -10,16 +10,17 @@ import peersim.transport.Transport;
 import poldercast.util.GossipMsg;
 import poldercast.util.NodeProfile;
 import poldercast.util.PolderCastNode;
+import poldercast.util.Util;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 
 public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
-    private int bitsSent = 0;
-    private int bitsReceived = 0;
-    private int messagesSent = 0;
-    private int messagesReceived = 0;
+    public int bitsSent = 0;
+    public int bitsReceived = 0;
+    public int messagesSent = 0;
+    public int messagesReceived = 0;
     public ArrayList<NodeProfile> routingTable = new ArrayList<NodeProfile>(MAX_VIEW_SIZE * 2);
 
     public final int protocolID;
@@ -42,9 +43,10 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
         return clone;
     }
 
-    public void nextCycle(Node node, int protocolID) {
+    public synchronized void nextCycle(Node node, int protocolID) {
         PolderCastNode thisNode = (PolderCastNode) node;
         CyclonProtocol protocol = (CyclonProtocol) thisNode.getProtocol(protocolID);
+        System.out.println(thisNode.toString() + " nextCycle");
 
         // Increment the age of all nodes
         Iterator<NodeProfile> nodeProfileIterator = protocol.routingTable.iterator();
@@ -66,64 +68,60 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
             if (profile.getAge() > oldestNode.getAge()) oldestNode = profile;
         }
 
-        protocol.sendMsg(thisNode, oldestNode.getNode(), msg, protocolID);
+        Util.sendMsg(thisNode, oldestNode.getNode(), msg, protocolID);
     }
 
-    public void processEvent(Node node, int protocolID, java.lang.Object event) {
+    public synchronized void processEvent(Node node, int protocolID, java.lang.Object event) {
         PolderCastNode thisNode = (PolderCastNode) node;
         CyclonProtocol protocol = (CyclonProtocol) thisNode.getProtocol(protocolID);
         GossipMsg receivedGossipMsg = (GossipMsg) event;
 
-        if(!(event instanceof GossipMsg)) {
+        if (!(event instanceof GossipMsg)) {
             throw new RuntimeException("CyclonProtocol should only receive GossipMsg events");
         }
 
-        if(receivedGossipMsg.getType() == GossipMsg.Types.GOSSIP_QUERY) {
-            protocol.bitsReceived += receivedGossipMsg.getSizeInBits();
-            protocol.messagesReceived++;
-            ArrayList<NodeProfile> profilesReceived = receivedGossipMsg.getNodeProfiles();
-            // Set age to 0 for all profiles received
-            Iterator<NodeProfile> nodeProfileIterator = profilesReceived.iterator();
-            while(nodeProfileIterator.hasNext()) {
-                NodeProfile profile = nodeProfileIterator.next();
-                profile.resetAge();
-                // Remove our profile if any
-                if(profile.getID().equals(thisNode.getNodeProfile().getID())) {
-                    nodeProfileIterator.remove();
-                }
-                // Remove any duplicates before we add
-                if(protocol.routingTable.contains(profile)) {
-                    nodeProfileIterator.remove();
-                }
-            }
+        protocol.bitsReceived += receivedGossipMsg.getSizeInBits();
+        protocol.messagesReceived++;
 
-            // Now we must merge, adding new entries and then replacing existing entries if necessary
-            protocol.routingTable.addAll(profilesReceived);
-            while(protocol.routingTable.size() > MAX_VIEW_SIZE) {
-                // Remove from the front of the list, as we favour new nodes over old ones
-                protocol.routingTable.remove(0);
-            }
+        if (receivedGossipMsg.getType() == GossipMsg.Types.GOSSIP_QUERY) {
+            this.mergeNodes(thisNode, receivedGossipMsg.getNodeProfiles());
 
             // Send a reply
             GossipMsg replyGossipMsg = new GossipMsg(protocol.getRoutingTableCopy(), GossipMsg.Types.GOSSIP_RESPONSE, thisNode);
             protocol.bitsSent += replyGossipMsg.getSizeInBits();
             protocol.messagesSent++;
-            protocol.sendMsg(thisNode, receivedGossipMsg.getSender(), replyGossipMsg, protocolID);
+            Util.sendMsg(thisNode, receivedGossipMsg.getSender(), replyGossipMsg, protocolID);
 
-        } else if(receivedGossipMsg.getType() == GossipMsg.Types.GOSSIP_RESPONSE) {
-
+        } else if (receivedGossipMsg.getType() == GossipMsg.Types.GOSSIP_RESPONSE) {
+            // Merge nodes into routing table
+            this.mergeNodes(thisNode, receivedGossipMsg.getNodeProfiles());
         } else {
             throw new RuntimeException("Bad GossipMsg");
         }
     }
 
-    private Transport getTransportForProtocol(Node node, int pid) {
-        return (Transport) node.getProtocol(FastConfig.getTransport(pid));
-    }
+    public synchronized void mergeNodes(PolderCastNode thisNode, ArrayList<NodeProfile> profiles) {
+        // Set age to 0 for all profiles received
+        Iterator<NodeProfile> nodeProfileIterator = profiles.iterator();
+        while (nodeProfileIterator.hasNext()) {
+            NodeProfile profile = nodeProfileIterator.next();
+            profile.resetAge();
+            // Remove our profile if any
+            if (profile.getID().equals(thisNode.getNodeProfile().getID())) {
+                nodeProfileIterator.remove();
+            }
+            // Remove any duplicates before we add
+            if (this.routingTable.contains(profile)) {
+                nodeProfileIterator.remove();
+            }
+        }
 
-    private void sendMsg(Node from, Node to, Object msg, int protocolID) {
-        Transport t = getTransportForProtocol(from, protocolID);
-        t.send(from, to, msg, protocolID);
+        // Now we must merge, adding new entries and then replacing existing entries if necessary
+        this.routingTable.addAll(profiles);
+        while (this.routingTable.size() > MAX_VIEW_SIZE) {
+            // Remove from the front of the list, as we favour new nodes over old ones
+            this.routingTable.remove(0);
+        }
     }
 
     /*
@@ -145,8 +143,7 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
         NodeProfile profile = ((PolderCastNode) neighbour).getNodeProfile();
 
         if(this.routingTable.size() == 20) {
-            //throw new RuntimeException("We shouldn't be attempting to bootstrap with more than 20 neighbours");
-            return true;
+            throw new RuntimeException("We shouldn't be attempting to bootstrap with more than 20 neighbours");
         }
 
         if(this.routingTable.contains(profile)) {
