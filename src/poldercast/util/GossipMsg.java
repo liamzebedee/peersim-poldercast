@@ -1,6 +1,7 @@
 package poldercast.util;
 
 import java.util.ArrayList;
+import java.util.Collections;
 
 public class GossipMsg implements SizeInBits {
     private final ArrayList<NodeProfile> profiles;
@@ -24,10 +25,14 @@ public class GossipMsg implements SizeInBits {
     }
 
     public ArrayList<NodeProfile> getNodeProfiles() {
-        return (ArrayList<NodeProfile>) this.profiles.clone();
+        ArrayList<NodeProfile> nodeProfiles = new ArrayList<NodeProfile>(this.profiles);
+        Collections.copy(nodeProfiles, this.profiles);
+        return nodeProfiles;
     }
 
     public PolderCastNode getSender() {
         return this.sender;
     }
+
+    public Types getType() { return this.type; }
 }

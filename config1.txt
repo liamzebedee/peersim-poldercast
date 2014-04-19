@@ -1,37 +1,68 @@
-MINUTE = 6*10
+SIZE 50
+
+# parameters of periodic execution
+CYCLES (SIZE*4 + SIZE*5) * 10
+CYCLE 1
+ENDTIME CYCLE*CYCLES
+
+# parameters of message transfer
+# delay values here are relative to cycle length, in percentage,
+# eg 50 means half the cycle length, 200 twice the cycle length, etc.
+MINDELAY 1*CYCLE
+MAXDELAY 5*CYCLE
+
 
 ########################################################### GENERAL SIMULATION SECTION
 random.seed 34245324
-network.size 10000
-simulation.cycles MINUTE
-
+network.size SIZE
+simulation.endtime ENDTIME
+simulation.logtime CYCLE
 network.node poldercast.util.PolderCastNode
 
 ########################################################### PROTOCOLS SECTION
-protocol.trans           peersim.transport.UniformRandomTransport
+protocol.transportUniformRandom  peersim.transport.UniformRandomTransport
 {
-  mindelay               0
-  maxdelay               100
+    mindelay MINDELAY
+    maxdelay MAXDELAY
 }
 
 protocol.cyclon poldercast.protocols.CyclonProtocol
 {
-    transport trans
+    transport transportUniformRandom
+    step  CYCLE
 }
-
+include.protocol transportUniformRandom  cyclon
 
 ########################################################### INITIALIZERS SECTION
 # this initializer assigns each node an ID
 init.poldercastIdAssigner poldercast.initializers.PolderCastIdAssigner
-#init.poldercastBootstrapper poldercast.initializers.PolderCastBootstrapper
+
+init.bootstrapper WireKOut
+init.bootstrapper.protocol cyclon
+init.bootstrapper.k 4
+init.bootstrapper.undir true
+
+init.cycleScheduler CDScheduler
+# list of cycle protocols separated by whitespace
+init.cycleScheduler.protocol cyclon
+init.cycleScheduler.randstart
 
 # the ordered sequence of initializers that must be run
-include.init poldercastIdAssigner
+include.init poldercastIdAssigner bootstrapper cycleScheduler
 
 ########################################################### CONTROLS SECTION
-control.0 peersim.dynamics.DynamicNetwork
-control.0.add 1
-control.0.init.0 RandNI
-control.0.init.0.k 3
-control.0.init.0.protocol cyclon
-control.0.init.1 poldercast.initializers.PolderCastIdAssigner
+#control.dyanmicNetwork peersim.dynamics.DynamicNetwork
+#control.dyanmicNetwork.add 1
+
+#control.dyanmicNetwork.init.0 RandNI
+#control.dyanmicNetwork.init.0.k 1
+#control.dyanmicNetwork.init.0.protocol cyclon
+
+#control.dyanmicNetwork.init.1 poldercast.initializers.PolderCastIdAssigner
+
+control.viewStats poldercast.controls.ViewStats
+{
+    step  ENDTIME-CYCLE
+    protocol cyclon
+}
+include.control viewStats
