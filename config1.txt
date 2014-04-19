@@ -3,12 +3,12 @@ SIZE 8
 NUM_BOOTSTRAP_NODES 4
 
 # parameters of periodic execution
-CYCLES 4*CYCLE
-CYCLE 1
-ENDTIME CYCLE*CYCLES
+CYCLES 50*CYCLE
+CYCLE 10
+ENDTIME CYCLES
 
 # parameters of message transfer
-MINDELAY 1*CYCLE
+MINDELAY 0
 MAXDELAY 1*CYCLE
 
 
@@ -45,7 +45,7 @@ init.bootstrapper.undir true
 init.cycleScheduler CDScheduler
 # list of cycle protocols separated by whitespace
 init.cycleScheduler.protocol cyclon
-init.cycleScheduler.randstart
+#init.cycleScheduler.randstart
 
 # the ordered sequence of initializers that must be run
 include.init poldercastIdAssigner bootstrapper cycleScheduler
@@ -62,12 +62,12 @@ include.init poldercastIdAssigner bootstrapper cycleScheduler
 
 control.viewStats poldercast.controls.ViewStats
 {
-    step  ENDTIME-CYCLE
+    step  1
     protocol cyclon
 }
 control.netStats poldercast.controls.NetStats
 {
-    step  ENDTIME-CYCLE
+    step  1
     protocol cyclon
 }
 include.control viewStats netStats
