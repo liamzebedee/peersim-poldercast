@@ -11,8 +11,14 @@ public class BaseControl {
     public static String logName = "base-log";
     protected PrintStream out;
     private String fileName;
+    private String prefix;
 
     public BaseControl(String prefix) {
+        this.prefix = prefix;
+        this.startNewLog();
+    }
+
+    public void startNewLog() {
         this.fileName = new FileNameGenerator(prefix + '.', ".log").nextCounterName();
         try {
             this.out = new PrintStream(new FileOutputStream(fileName));

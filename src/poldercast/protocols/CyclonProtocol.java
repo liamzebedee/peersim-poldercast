@@ -54,11 +54,6 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
             profile.incrementAge();
         }
 
-        // Gossip
-        GossipMsg msg = new GossipMsg(protocol.getRoutingTableCopy(), GossipMsg.Types.GOSSIP_QUERY, thisNode);
-        // TODO synchronize
-        protocol.bitsSent += msg.getSizeInBits();
-        protocol.messagesSent++;
         // Select oldest node
         NodeProfile oldestNode = protocol.routingTable.get(0);
         nodeProfileIterator = protocol.routingTable.iterator();
@@ -66,6 +61,14 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
             NodeProfile profile = nodeProfileIterator.next();
             if (profile.getAge() > oldestNode.getAge()) oldestNode = profile;
         }
+        // Gossip
+        ArrayList<NodeProfile> nodesToSend = protocol.getRoutingTableCopy();
+        // remove the target and replace with our node
+        nodesToSend.set(nodesToSend.indexOf(oldestNode), thisNode.getNodeProfile());
+        protocol.routingTable.remove(oldestNode); // proactive removal to combat churn
+        GossipMsg msg = new GossipMsg(nodesToSend, GossipMsg.Types.GOSSIP_QUERY, thisNode);
+        protocol.bitsSent += msg.getSizeInBits();
+        protocol.messagesSent++;
 
         Util.sendMsg(thisNode, oldestNode.getNode(), msg, protocolID);
     }
@@ -84,9 +87,13 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
 
         if (receivedGossipMsg.getType() == GossipMsg.Types.GOSSIP_QUERY) {
             protocol.mergeNodes(thisNode, receivedGossipMsg.getNodeProfiles());
+            protocol.communicationReceivedFromNode(receivedGossipMsg.getSender().getNodeProfile());
 
             // Send a reply
-            GossipMsg replyGossipMsg = new GossipMsg(protocol.getRoutingTableCopy(), GossipMsg.Types.GOSSIP_RESPONSE, thisNode);
+            ArrayList<NodeProfile> nodesToSend = protocol.getRoutingTableCopy();
+            // remove the target and replace with our node
+            nodesToSend.set(nodesToSend.indexOf(receivedGossipMsg.getSender().getNodeProfile()), thisNode.getNodeProfile());
+            GossipMsg replyGossipMsg = new GossipMsg(nodesToSend, GossipMsg.Types.GOSSIP_RESPONSE, thisNode);
             protocol.bitsSent += replyGossipMsg.getSizeInBits();
             protocol.messagesSent++;
             Util.sendMsg(thisNode, receivedGossipMsg.getSender(), replyGossipMsg, protocolID);
@@ -94,24 +101,25 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
         } else if (receivedGossipMsg.getType() == GossipMsg.Types.GOSSIP_RESPONSE) {
             // Merge nodes into routing table
             protocol.mergeNodes(thisNode, receivedGossipMsg.getNodeProfiles());
+            protocol.communicationReceivedFromNode(receivedGossipMsg.getSender().getNodeProfile());
         } else {
             throw new RuntimeException("Bad GossipMsg");
         }
     }
 
     public synchronized void mergeNodes(PolderCastNode thisNode, ArrayList<NodeProfile> profiles) {
-        // Set age to 0 for all profiles received
         Iterator<NodeProfile> nodeProfileIterator = profiles.iterator();
         while (nodeProfileIterator.hasNext()) {
             NodeProfile profile = nodeProfileIterator.next();
-            profile.resetAge();
             // Remove our profile if any
             if (profile.getID().equals(thisNode.getNodeProfile().getID())) {
                 nodeProfileIterator.remove();
             }
             // Remove any duplicates before we add
             if (this.routingTable.contains(profile)) {
-                nodeProfileIterator.remove();
+                // This is a much better place to remove the node.
+                // We are going to add it back in later.
+                this.routingTable.remove(profile);
             }
         }
 
@@ -120,6 +128,14 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
         while (this.routingTable.size() > MAX_VIEW_SIZE) {
             // Remove from the front of the list, as we favour new nodes over old ones
             this.routingTable.remove(0);
+        }
+    }
+
+    public void communicationReceivedFromNode(NodeProfile node) {
+        // If we have the node in the routing table, zero its age
+        int i = this.routingTable.indexOf(node);
+        if(i != -1) {
+            this.routingTable.get(i).resetAge();
         }
     }
 

@@ -7,9 +7,7 @@ import peersim.core.Node;
 import peersim.edsim.EDProtocol;
 import poldercast.util.*;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
+import java.util.*;
 
 public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
     public int bitsSent = 0;
@@ -50,6 +48,11 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
         }
 
         // Select oldest node
+        if(protocol.routingTable.isEmpty()) {
+            // If we haven't got any nodes in the view yet, bootstrap with the nodes from the Cyclon view
+            // NOTE: although it wasn't explicitly defined in the design paper, intuition tells me this is how it works
+            this.mergeNodes(thisNode, new ArrayList<NodeProfile>());
+        }
         NodeProfile oldestNode = protocol.routingTable.get(0);
         nodeProfileIterator = protocol.routingTable.iterator();
         while (nodeProfileIterator.hasNext()) {
@@ -57,7 +60,11 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
             if (profile.getAge() > oldestNode.getAge()) oldestNode = profile;
         }
 
-        ArrayList<NodeProfile> profilesToSend = this.selectClosestNodesForNode(thisNode, oldestNode, thisNode.getUnionOfAllViews());
+        ArrayList<NodeProfile> tmpProfilesToSend = thisNode.getUnionOfAllViews();
+        // remove the target and replace with our node
+        tmpProfilesToSend.set(tmpProfilesToSend.indexOf(oldestNode), thisNode.getNodeProfile());
+        ArrayList<NodeProfile> profilesToSend = this.selectClosestNodesForNode(thisNode, oldestNode, tmpProfilesToSend);
+        protocol.routingTable.remove(oldestNode); // proactive removal to combat churn
 
         GossipMsg msg = new GossipMsg(profilesToSend, GossipMsg.Types.GOSSIP_QUERY, thisNode);
         protocol.bitsSent += msg.getSizeInBits();
@@ -79,6 +86,9 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
 
         if (receivedGossipMsg.getType() == GossipMsg.Types.GOSSIP_QUERY) {
             protocol.mergeNodes(thisNode, receivedGossipMsg.getNodeProfiles());
+            protocol.communicationReceivedFromNode(receivedGossipMsg.getSender().getNodeProfile());
+
+
             ArrayList<NodeProfile> profilesToSend = this.selectClosestNodesForNode(thisNode,
                     receivedGossipMsg.getSender().getNodeProfile(), thisNode.getUnionOfAllViews());
 
@@ -89,6 +99,7 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
 
         } else if (receivedGossipMsg.getType() == GossipMsg.Types.GOSSIP_RESPONSE) {
             protocol.mergeNodes(thisNode, receivedGossipMsg.getNodeProfiles());
+            protocol.communicationReceivedFromNode(receivedGossipMsg.getSender().getNodeProfile());
 
         } else {
             throw new RuntimeException("Bad GossipMsg");
@@ -99,31 +110,37 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
                                                                          ArrayList<NodeProfile> nodeSelection) {
         ArrayList<NodeProfile> closestNodes;
         Collections.sort(nodeSelection, new VicinityComparator(node));
-        closestNodes = new ArrayList<NodeProfile>(nodeSelection.subList(0, VicinityProtocol.MAX_VIEW_SIZE));
+        // Get up to 20 of the closest nodes
+        closestNodes = new ArrayList<NodeProfile>(nodeSelection.subList(0,
+                Math.min(nodeSelection.size(), VicinityProtocol.MAX_VIEW_SIZE)));
         return closestNodes;
     }
 
     public synchronized void mergeNodes(PolderCastNode thisNode, ArrayList<NodeProfile> profiles) {
-        // Set age to 0 for all profiles received
         Iterator<NodeProfile> nodeProfileIterator = profiles.iterator();
         while (nodeProfileIterator.hasNext()) {
             NodeProfile profile = nodeProfileIterator.next();
-            profile.resetAge();
             // Remove our profile if any
             if (profile.getID().equals(thisNode.getNodeProfile().getID())) {
                 nodeProfileIterator.remove();
             }
             // Remove any duplicates before we add
             if (this.routingTable.contains(profile)) {
-                nodeProfileIterator.remove();
+                // This is a much better place to remove the node.
+                // We are most likely going to add it back in later.
+                this.routingTable.remove(profile);
             }
         }
 
         // Consider the union of all views with these nodes
         ArrayList<NodeProfile> candidatesToAdd = thisNode.getUnionOfAllViews();
-        candidatesToAdd.addAll(profiles);
+        candidatesToAdd = this.selectClosestNodesForNode(thisNode, thisNode.getNodeProfile(), candidatesToAdd);
+        // Remove duplicates
+        Set setItems = new LinkedHashSet(candidatesToAdd);
+        candidatesToAdd.clear();
+        candidatesToAdd.addAll(setItems);
 
-        this.routingTable = this.selectClosestNodesForNode(thisNode, thisNode.getNodeProfile(), candidatesToAdd);
+        this.routingTable = candidatesToAdd;
     }
 
 
@@ -135,7 +152,13 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
 
 
 
-
+    public void communicationReceivedFromNode(NodeProfile node) {
+        // If we have the node in the routing table, zero its age
+        int i = this.routingTable.indexOf(node);
+        if(i != -1) {
+            this.routingTable.get(i).resetAge();
+        }
+    }
 
     /*
      * Performs cleanup when removed from the network.

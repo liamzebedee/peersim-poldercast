@@ -20,10 +20,8 @@ public class ViewStats extends BaseControl implements Control {
     }
 
     public boolean execute() {
-        if(CommonState.getIntTime() == 1) {
-            this.summariseViewDegrees();
-        }
-        if(CommonState.getTime() == CommonState.getEndTime() - 1) {
+        if((CommonState.getTime() == CommonState.getEndTime() - 1)) {
+            this.startNewLog();
             int n = Network.size();
             this.out.println("Network size: "+n+"\n");
             this.summariseViewDegrees();
@@ -36,10 +34,16 @@ public class ViewStats extends BaseControl implements Control {
         int n = Network.size();
         for(int i=0; i<n; i++) {
             PolderCastNode node = (PolderCastNode) Network.get(i);
-            this.out.println("view degree for " + node.toString() + " - " + node.getCyclonProtocol().degree());
+            this.out.println("[" + node.toString() + "]");
+            out.println("-Cyclon : " + node.getCyclonProtocol().degree());
             for(NodeProfile profile : node.getCyclonProtocol().getRoutingTableCopy()) {
-                out.println("- "+profile.toString());
+                out.println("-- "+profile.toString());
             }
+            out.println("-Vicinity : " + node.getVicinityProtocol().degree());
+            for(NodeProfile profile : node.getVicinityProtocol().getRoutingTableCopy()) {
+                out.println("-- "+profile.toString());
+            }
+            this.out.println();
             this.out.flush();
         }
     }
