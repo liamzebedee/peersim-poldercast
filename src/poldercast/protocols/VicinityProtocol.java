@@ -2,21 +2,16 @@ package poldercast.protocols;
 
 import peersim.cdsim.CDProtocol;
 import peersim.config.Configuration;
-import peersim.config.FastConfig;
 import peersim.core.Linkable;
 import peersim.core.Node;
 import peersim.edsim.EDProtocol;
-import peersim.transport.Transport;
-import poldercast.util.GossipMsg;
-import poldercast.util.NodeProfile;
-import poldercast.util.PolderCastNode;
-import poldercast.util.Util;
+import poldercast.util.*;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 
-public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
+public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
     public int bitsSent = 0;
     public int bitsReceived = 0;
     public int messagesSent = 0;
@@ -25,17 +20,17 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
 
     public final int protocolID;
     public static final int MAX_VIEW_SIZE = 20;
-    public static final String CYCLON = "cyclon";
+    public static final String VICINITY = "vicinity";
 
-    public CyclonProtocol(String configPrefix) {
-        this.protocolID = Configuration.lookupPid(CYCLON);
+    public VicinityProtocol(String configPrefix) {
+        this.protocolID = Configuration.lookupPid(VICINITY);
     }
 
     @Override
     public Object clone() {
-        CyclonProtocol clone = null;
+        VicinityProtocol clone = null;
         try {
-            clone = (CyclonProtocol) super.clone();
+            clone = (VicinityProtocol) super.clone();
             clone.routingTable = this.getRoutingTableCopy();
         } catch(Exception e) {
             e.printStackTrace();
@@ -45,7 +40,7 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
 
     public synchronized void nextCycle(Node node, int protocolID) {
         PolderCastNode thisNode = (PolderCastNode) node;
-        CyclonProtocol protocol = (CyclonProtocol) thisNode.getProtocol(protocolID);
+        VicinityProtocol protocol = (VicinityProtocol) thisNode.getProtocol(protocolID);
 
         // Increment the age of all nodes
         Iterator<NodeProfile> nodeProfileIterator = protocol.routingTable.iterator();
@@ -54,11 +49,6 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
             profile.incrementAge();
         }
 
-        // Gossip
-        GossipMsg msg = new GossipMsg(protocol.getRoutingTableCopy(), GossipMsg.Types.GOSSIP_QUERY, thisNode);
-        // TODO synchronize
-        protocol.bitsSent += msg.getSizeInBits();
-        protocol.messagesSent++;
         // Select oldest node
         NodeProfile oldestNode = protocol.routingTable.get(0);
         nodeProfileIterator = protocol.routingTable.iterator();
@@ -67,12 +57,17 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
             if (profile.getAge() > oldestNode.getAge()) oldestNode = profile;
         }
 
+        ArrayList<NodeProfile> profilesToSend = this.selectClosestNodesForNode(thisNode, oldestNode, thisNode.getUnionOfAllViews());
+
+        GossipMsg msg = new GossipMsg(profilesToSend, GossipMsg.Types.GOSSIP_QUERY, thisNode);
+        protocol.bitsSent += msg.getSizeInBits();
+        protocol.messagesSent++;
         Util.sendMsg(thisNode, oldestNode.getNode(), msg, protocolID);
     }
 
     public synchronized void processEvent(Node node, int protocolID, java.lang.Object event) {
         PolderCastNode thisNode = (PolderCastNode) node;
-        CyclonProtocol protocol = (CyclonProtocol) thisNode.getProtocol(protocolID);
+        VicinityProtocol protocol = (VicinityProtocol) thisNode.getProtocol(protocolID);
         GossipMsg receivedGossipMsg = (GossipMsg) event;
 
         if (!(event instanceof GossipMsg)) {
@@ -84,19 +79,28 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
 
         if (receivedGossipMsg.getType() == GossipMsg.Types.GOSSIP_QUERY) {
             protocol.mergeNodes(thisNode, receivedGossipMsg.getNodeProfiles());
+            ArrayList<NodeProfile> profilesToSend = this.selectClosestNodesForNode(thisNode,
+                    receivedGossipMsg.getSender().getNodeProfile(), thisNode.getUnionOfAllViews());
 
-            // Send a reply
-            GossipMsg replyGossipMsg = new GossipMsg(protocol.getRoutingTableCopy(), GossipMsg.Types.GOSSIP_RESPONSE, thisNode);
-            protocol.bitsSent += replyGossipMsg.getSizeInBits();
+            GossipMsg msg = new GossipMsg(profilesToSend, GossipMsg.Types.GOSSIP_QUERY, thisNode);
+            protocol.bitsSent += msg.getSizeInBits();
             protocol.messagesSent++;
-            Util.sendMsg(thisNode, receivedGossipMsg.getSender(), replyGossipMsg, protocolID);
+            Util.sendMsg(thisNode, receivedGossipMsg.getSender(), msg, protocolID);
 
         } else if (receivedGossipMsg.getType() == GossipMsg.Types.GOSSIP_RESPONSE) {
-            // Merge nodes into routing table
             protocol.mergeNodes(thisNode, receivedGossipMsg.getNodeProfiles());
+
         } else {
             throw new RuntimeException("Bad GossipMsg");
         }
+    }
+
+    public synchronized ArrayList<NodeProfile> selectClosestNodesForNode(PolderCastNode thisNode, NodeProfile node,
+                                                                         ArrayList<NodeProfile> nodeSelection) {
+        ArrayList<NodeProfile> closestNodes;
+        Collections.sort(nodeSelection, new VicinityComparator(node));
+        closestNodes = new ArrayList<NodeProfile>(nodeSelection.subList(0, VicinityProtocol.MAX_VIEW_SIZE));
+        return closestNodes;
     }
 
     public synchronized void mergeNodes(PolderCastNode thisNode, ArrayList<NodeProfile> profiles) {
@@ -115,13 +119,23 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
             }
         }
 
-        // Now we must merge, adding new entries and then replacing existing entries if necessary
-        this.routingTable.addAll(profiles);
-        while (this.routingTable.size() > MAX_VIEW_SIZE) {
-            // Remove from the front of the list, as we favour new nodes over old ones
-            this.routingTable.remove(0);
-        }
+        // Consider the union of all views with these nodes
+        ArrayList<NodeProfile> candidatesToAdd = thisNode.getUnionOfAllViews();
+        candidatesToAdd.addAll(profiles);
+
+        this.routingTable = this.selectClosestNodesForNode(thisNode, thisNode.getNodeProfile(), candidatesToAdd);
     }
+
+
+
+
+
+
+
+
+
+
+
 
     /*
      * Performs cleanup when removed from the network.

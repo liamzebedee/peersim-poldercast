@@ -31,7 +31,12 @@ protocol.cyclon poldercast.protocols.CyclonProtocol
     transport transportUniformRandom
     step  CYCLE
 }
-include.protocol transportUniformRandom  cyclon
+protocol.vicinity poldercast.protocols.VicinityProtocol
+{
+    transport transportUniformRandom
+    step  CYCLE
+}
+include.protocol transportUniformRandom cyclon vicinity
 
 ########################################################### INITIALIZERS SECTION
 # this initializer assigns each node an ID
@@ -44,7 +49,7 @@ init.bootstrapper.undir true
 
 init.cycleScheduler CDScheduler
 # list of cycle protocols separated by whitespace
-init.cycleScheduler.protocol cyclon
+init.cycleScheduler.protocol cyclon vicinity
 #init.cycleScheduler.randstart
 
 # the ordered sequence of initializers that must be run
@@ -63,11 +68,11 @@ include.init poldercastIdAssigner bootstrapper cycleScheduler
 control.viewStats poldercast.controls.ViewStats
 {
     step  1
-    protocol cyclon
+    protocol cyclon vicinity
 }
 control.netStats poldercast.controls.NetStats
 {
     step  1
-    protocol cyclon
+    protocol cyclon vicinity
 }
 include.control viewStats netStats
