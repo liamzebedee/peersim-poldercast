@@ -4,6 +4,7 @@ import peersim.config.Configuration;
 import peersim.core.CommonState;
 import peersim.core.GeneralNode;
 import poldercast.protocols.CyclonProtocol;
+import poldercast.protocols.RingsProtocol;
 import poldercast.protocols.VicinityProtocol;
 
 import java.util.ArrayList;
@@ -31,10 +32,15 @@ public class PolderCastNode extends GeneralNode {
         return (VicinityProtocol) this.getProtocol(Configuration.lookupPid(VicinityProtocol.VICINITY));
     }
 
+    public RingsProtocol getRingsProtocol() {
+        return (RingsProtocol) this.getProtocol(Configuration.lookupPid(RingsProtocol.RINGS));
+    }
+
     public ArrayList<NodeProfile> getUnionOfAllViews() {
         ArrayList<NodeProfile> union = new ArrayList<NodeProfile>();
         union.addAll(this.getCyclonProtocol().routingTable);
         union.addAll(this.getVicinityProtocol().routingTable);
+        union.addAll(this.getRingsProtocol().getLinearView());
         return union;
     }
 

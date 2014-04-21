@@ -48,11 +48,8 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
         }
 
         // Select oldest node
-        if(protocol.routingTable.isEmpty()) {
-            // If we haven't got any nodes in the view yet, bootstrap with the nodes from the Cyclon view
-            // NOTE: although it wasn't explicitly defined in the design paper, intuition tells me this is how it works
-            this.mergeNodes(thisNode, new ArrayList<NodeProfile>());
-        }
+        // If we haven't got any nodes in the view yet, bootstrap with the nodes from the Cyclon view
+        if(protocol.routingTable.isEmpty()) protocol.bootstrapFromOtherModules(thisNode);
         NodeProfile oldestNode = protocol.routingTable.get(0);
         nodeProfileIterator = protocol.routingTable.iterator();
         while (nodeProfileIterator.hasNext()) {
@@ -134,6 +131,7 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
 
         // Consider the union of all views with these nodes
         ArrayList<NodeProfile> candidatesToAdd = thisNode.getUnionOfAllViews();
+        // TODO union may contain duplicates
         candidatesToAdd = this.selectClosestNodesForNode(thisNode, thisNode.getNodeProfile(), candidatesToAdd);
         // Remove duplicates
         Set setItems = new LinkedHashSet(candidatesToAdd);
@@ -143,6 +141,10 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
         this.routingTable = candidatesToAdd;
     }
 
+    private void bootstrapFromOtherModules(PolderCastNode thisNode) {
+        // NOTE: although it wasn't explicitly defined in the design paper, intuition tells me this is how it works
+        this.mergeNodes(thisNode, new ArrayList<NodeProfile>());
+    }
 
 
 
@@ -174,20 +176,12 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
 
     // Add a neighbor to the current set of neighbors.
     // NOTE this method should only be called at node initialization and by a bootstrapping class
-    // Cyclon uses gossipping to find and add new neighbours
     public boolean addNeighbor(Node neighbour) {
-        NodeProfile profile = ((PolderCastNode) neighbour).getNodeProfile();
-
-        if(this.routingTable.size() == 20) {
-            throw new RuntimeException("We shouldn't be attempting to bootstrap with more than 20 neighbours");
-        }
-
-        if(this.routingTable.contains(profile)) {
-            return false;
-        } else {
-            this.routingTable.add(profile);
-            return true;
-        }
+        /*
+        NOTE: Perhaps when people are testing simulations of PolderCast solely with the Vicinity module on its own
+              then this would be acceptable, but I doubt anyone would do this.
+         */
+        throw new RuntimeException("We shouldn't be attempting to bootstrap the Vicinity module");
     }
 
     // Returns true if the given node is a member of the neighbor set.

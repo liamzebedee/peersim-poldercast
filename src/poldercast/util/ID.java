@@ -13,7 +13,7 @@ public class ID {
     /**
      * The actual PolderCast identifier.
      */
-    private final BigInteger id;
+    protected final BigInteger id;
 
     public ID(Random prng) {
         // randomly generate a value in the [0..2^(BITS)-1] range
