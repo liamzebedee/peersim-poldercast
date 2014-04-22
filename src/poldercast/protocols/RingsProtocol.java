@@ -29,6 +29,11 @@ class RingsTopicView {
         for(NodeProfile profile : this.nodesWithLowerID) profile.incrementAge();
         for(NodeProfile profile : this.nodesWithHigherID) profile.incrementAge();
     }
+
+    public synchronized void removeNode(NodeProfile nodeProfile) {
+        if(this.nodesWithHigherID.contains(nodeProfile)) this.nodesWithHigherID.remove(nodeProfile);
+        if(this.nodesWithLowerID.contains(nodeProfile)) this.nodesWithLowerID.remove(nodeProfile);
+    }
 }
 
 public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
@@ -39,6 +44,7 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
     public Map<ID, RingsTopicView> routingTable = new HashMap<ID, RingsTopicView>();
 
     public final int protocolID;
+    public static final int MAX_GOSSIP_LENGTH = 10;
     public static final int MAX_VIEW_SIZE = 4;
     public static final String RINGS = "rings";
 
@@ -72,11 +78,19 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
         }
         // Select oldest node
         NodeProfile oldestNode = profiles.get(0);
-        nodeProfileIterator = protocol.routingTable.iterator();
+        nodeProfileIterator = profiles.iterator();
         while (nodeProfileIterator.hasNext()) {
             NodeProfile profile = nodeProfileIterator.next();
             if (profile.getAge() > oldestNode.getAge()) oldestNode = profile;
         }
+
+        ArrayList<NodeProfile> nodesToSend = protocol.selectNodesToSend(thisNode, oldestNode);
+        protocol.removeNode(oldestNode); // proactive removal to combat churn
+        GossipMsg msg = new GossipMsg(nodesToSend, GossipMsg.Types.GOSSIP_QUERY, thisNode);
+        protocol.bitsSent += msg.getSizeInBits();
+        protocol.messagesSent++;
+
+        Util.sendMsg(thisNode, oldestNode.getNode(), msg, protocolID);
     }
 
     public synchronized void processEvent(Node node, int protocolID, java.lang.Object event) {
@@ -92,15 +106,83 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
         protocol.messagesReceived++;
 
         if (receivedGossipMsg.getType() == GossipMsg.Types.GOSSIP_QUERY) {
+            protocol.mergeNodes(thisNode, receivedGossipMsg.getNodeProfiles());
 
+            ArrayList<NodeProfile> nodesToSend = protocol.selectNodesToSend(thisNode, receivedGossipMsg.getSender().getNodeProfile());
+            GossipMsg msg = new GossipMsg(nodesToSend, GossipMsg.Types.GOSSIP_QUERY, thisNode);
+            protocol.bitsSent += msg.getSizeInBits();
+            protocol.messagesSent++;
+
+            Util.sendMsg(thisNode, receivedGossipMsg.getSender(), msg, protocolID);
 
         } else if (receivedGossipMsg.getType() == GossipMsg.Types.GOSSIP_RESPONSE) {
+            protocol.mergeNodes(thisNode, receivedGossipMsg.getNodeProfiles());
+            protocol.communicationReceivedFromNode(receivedGossipMsg.getSender().getNodeProfile());
 
         } else {
             throw new RuntimeException("Bad GossipMsg");
         }
     }
-    
+    public synchronized ArrayList<NodeProfile> selectNodesToSend(PolderCastNode thisNode, NodeProfile gossipNode) {
+        ArrayList<ID> subscriptionsInCommon = new ArrayList<ID>(thisNode.getNodeProfile().getSubscriptions().keySet());
+        subscriptionsInCommon.retainAll(gossipNode.getSubscriptions().keySet());
+
+        Set<NodeProfile> nodesToSend = new LinkedHashSet<NodeProfile>();
+        ArrayList<NodeProfile> candidates = new ArrayList<NodeProfile>(thisNode.getUnionOfAllViews());
+        candidates.add(thisNode.getNodeProfile()); // since we are selecting nodes to send, we add our own
+        // Remove duplicates
+        Set setItems = new LinkedHashSet(candidates);
+        candidates.clear();
+        candidates.addAll(setItems);
+        for (ID subscription : subscriptionsInCommon) {
+            ArrayList<NodeProfile> candidatesThatShareInterest = new ArrayList<NodeProfile>();
+            for (NodeProfile profile : candidates) {
+                if (profile.getSubscriptions().containsKey(subscription)) {
+                    candidatesThatShareInterest.add(profile);
+                }
+            }
+
+            if(candidatesThatShareInterest.isEmpty()) continue;
+
+            // So we can compute indexOfGossipNode, and thus, the justLower and justHigher nodes
+            candidatesThatShareInterest.add(gossipNode);
+            // Order by ID
+            Collections.sort(candidatesThatShareInterest, new IDComparator());
+            int indexOfGossipNode = candidatesThatShareInterest.indexOf(gossipNode);
+
+            ArrayList<NodeProfile> justLower = new ArrayList<NodeProfile>();
+            ArrayList<NodeProfile> justHigher = new ArrayList<NodeProfile>();
+            int justLowerIndex;
+            int justHigherIndex;
+
+            // While we still need nodes to fill the justLower list
+            while(((RingsProtocol.MAX_VIEW_SIZE / 2) - justLower.size()) > 0) {
+                justLowerIndex = (indexOfGossipNode - 1) % justLower.size();
+                NodeProfile toAdd = candidatesThatShareInterest.get(justLowerIndex);
+                if(justLower.contains(toAdd)) break;
+                else justLower.add(toAdd);
+            }
+            // While we still need nodes to fill the justHigher list
+            while(((RingsProtocol.MAX_VIEW_SIZE / 2) - justHigher.size()) > 0) {
+                justHigherIndex  = (indexOfGossipNode + 1) % justHigher.size();
+                NodeProfile toAdd = candidatesThatShareInterest.get(justHigherIndex);
+                if(justHigher.contains(toAdd)) break;
+                else justHigher.add(toAdd);
+            }
+
+            nodesToSend.addAll(justLower);
+            nodesToSend.addAll(justHigher);
+        }
+
+        ArrayList<NodeProfile> listOfNodesToSend = new ArrayList<NodeProfile>(nodesToSend);
+        if(nodesToSend.size() > RingsProtocol.MAX_GOSSIP_LENGTH) {
+            Collections.shuffle(listOfNodesToSend);
+            listOfNodesToSend = new ArrayList<NodeProfile>(listOfNodesToSend.subList(0, RingsProtocol.MAX_GOSSIP_LENGTH));
+        }
+
+        return listOfNodesToSend;
+    }
+
     public synchronized void mergeNodes(PolderCastNode thisNode, ArrayList<NodeProfile> profiles) {
         Iterator<NodeProfile> nodeProfileIterator = profiles.iterator();
         while (nodeProfileIterator.hasNext()) {
@@ -128,6 +210,7 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
 
             if(candidatesThatShareInterest.isEmpty()) continue;
 
+            // So we can compute indexOfOurNode, and thus, the justLower and justHigher nodes
             candidatesThatShareInterest.add(thisNode.getNodeProfile());
             // Order by ID
             Collections.sort(candidatesThatShareInterest, new IDComparator());
@@ -163,8 +246,9 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
         this.mergeNodes(thisNode, new ArrayList<NodeProfile>());
     }
 
-    public void communicationReceivedFromNode(NodeProfile node) {
-
+    private void communicationReceivedFromNode(NodeProfile node) {
+        ArrayList<NodeProfile> view = this.getLinearView();
+        if(view.contains(node)) node.resetAge();
     }
 
     public ArrayList<NodeProfile> getLinearView() {
@@ -176,6 +260,11 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
         return profiles;
     }
 
+    private synchronized void removeNode(NodeProfile nodeProfile) {
+        for(RingsTopicView view : this.routingTable.values()) {
+            view.removeNode(nodeProfile);
+        }
+    }
 
 
 

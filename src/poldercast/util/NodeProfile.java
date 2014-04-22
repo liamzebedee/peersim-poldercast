@@ -47,4 +47,10 @@ public class NodeProfile implements SizeInBits {
     }
 
     public Map<ID, Byte> getSubscriptions() { return this.subscriptions; }
+
+    @Override
+    public boolean equals(Object nodeProfile) {
+        NodeProfile node = (NodeProfile) nodeProfile;
+        return this.id.equals(node.id);
+    }
 }

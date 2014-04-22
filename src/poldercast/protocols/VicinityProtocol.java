@@ -18,6 +18,7 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
 
     public final int protocolID;
     public static final int MAX_VIEW_SIZE = 20;
+    public static final int MAX_GOSSIP_LENGTH = 10;
     public static final String VICINITY = "vicinity";
 
     public VicinityProtocol(String configPrefix) {
@@ -109,7 +110,7 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
         Collections.sort(nodeSelection, new VicinityComparator(node));
         // Get up to 20 of the closest nodes
         closestNodes = new ArrayList<NodeProfile>(nodeSelection.subList(0,
-                Math.min(nodeSelection.size(), VicinityProtocol.MAX_VIEW_SIZE)));
+                Math.min(nodeSelection.size(), VicinityProtocol.MAX_GOSSIP_LENGTH)));
         return closestNodes;
     }
 
@@ -155,11 +156,8 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
 
 
     public void communicationReceivedFromNode(NodeProfile node) {
-        // If we have the node in the routing table, zero its age
-        int i = this.routingTable.indexOf(node);
-        if(i != -1) {
-            this.routingTable.get(i).resetAge();
-        }
+        ArrayList<NodeProfile> view = this.routingTable;
+        if(view.contains(node)) node.resetAge();
     }
 
     /*

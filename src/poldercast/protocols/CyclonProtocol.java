@@ -25,6 +25,7 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
 
     public final int protocolID;
     public static final int MAX_VIEW_SIZE = 20;
+    public static final int MAX_GOSSIP_LENGTH = 10;
     public static final String CYCLON = "cyclon";
 
     public CyclonProtocol(String configPrefix) {
@@ -65,6 +66,8 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
         ArrayList<NodeProfile> nodesToSend = protocol.getRoutingTableCopy();
         // remove the target and replace with our node
         nodesToSend.set(nodesToSend.indexOf(oldestNode), thisNode.getNodeProfile());
+        nodesToSend = new ArrayList<NodeProfile>(
+                nodesToSend.subList(0, Math.min(nodesToSend.size(), CyclonProtocol.MAX_GOSSIP_LENGTH)));
         protocol.routingTable.remove(oldestNode); // proactive removal to combat churn
         GossipMsg msg = new GossipMsg(nodesToSend, GossipMsg.Types.GOSSIP_QUERY, thisNode);
         protocol.bitsSent += msg.getSizeInBits();
@@ -93,6 +96,8 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
             ArrayList<NodeProfile> nodesToSend = protocol.getRoutingTableCopy();
             // remove the target and replace with our node
             nodesToSend.set(nodesToSend.indexOf(receivedGossipMsg.getSender().getNodeProfile()), thisNode.getNodeProfile());
+            nodesToSend = new ArrayList<NodeProfile>(
+                    nodesToSend.subList(0, Math.min(nodesToSend.size(), CyclonProtocol.MAX_GOSSIP_LENGTH)));
             GossipMsg replyGossipMsg = new GossipMsg(nodesToSend, GossipMsg.Types.GOSSIP_RESPONSE, thisNode);
             protocol.bitsSent += replyGossipMsg.getSizeInBits();
             protocol.messagesSent++;
