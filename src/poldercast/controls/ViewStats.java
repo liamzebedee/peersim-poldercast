@@ -35,13 +35,17 @@ public class ViewStats extends BaseControl implements Control {
         for(int i=0; i<n; i++) {
             PolderCastNode node = (PolderCastNode) Network.get(i);
             this.out.println("[" + node.toString() + "]");
-            out.println("-Cyclon : " + node.getCyclonProtocol().degree());
+            out.println("Cyclon : " + node.getCyclonProtocol().degree());
             for(NodeProfile profile : node.getCyclonProtocol().getRoutingTableCopy()) {
-                out.println("-- "+profile.toString());
+                out.println(" - "+profile.toString());
             }
-            out.println("-Vicinity : " + node.getVicinityProtocol().degree());
+            out.println("Vicinity : " + node.getVicinityProtocol().degree());
             for(NodeProfile profile : node.getVicinityProtocol().getRoutingTableCopy()) {
-                out.println("-- "+profile.toString());
+                out.println(" - "+profile.toString());
+            }
+            out.println("Rings : " + node.getRingsProtocol().degree());
+            for(NodeProfile profile : node.getRingsProtocol().getLinearView()) {
+                out.println(" - "+profile.toString());
             }
             this.out.println();
             this.out.flush();

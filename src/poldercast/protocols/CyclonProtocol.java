@@ -95,7 +95,9 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
             // Send a reply
             ArrayList<NodeProfile> nodesToSend = protocol.getRoutingTableCopy();
             // remove the target and replace with our node
-            nodesToSend.set(nodesToSend.indexOf(receivedGossipMsg.getSender().getNodeProfile()), thisNode.getNodeProfile());
+            if(nodesToSend.contains(receivedGossipMsg.getSender().getNodeProfile())) {
+                nodesToSend.set(nodesToSend.indexOf(receivedGossipMsg.getSender().getNodeProfile()), thisNode.getNodeProfile());
+            }
             nodesToSend = new ArrayList<NodeProfile>(
                     nodesToSend.subList(0, Math.min(nodesToSend.size(), CyclonProtocol.MAX_GOSSIP_LENGTH)));
             GossipMsg replyGossipMsg = new GossipMsg(nodesToSend, GossipMsg.Types.GOSSIP_RESPONSE, thisNode);

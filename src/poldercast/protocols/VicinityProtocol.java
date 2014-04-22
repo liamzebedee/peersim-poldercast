@@ -61,7 +61,8 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
         ArrayList<NodeProfile> tmpProfilesToSend = thisNode.getUnionOfAllViews();
         // remove the target and replace with our node
         tmpProfilesToSend.set(tmpProfilesToSend.indexOf(oldestNode), thisNode.getNodeProfile());
-        ArrayList<NodeProfile> profilesToSend = this.selectClosestNodesForNode(thisNode, oldestNode, tmpProfilesToSend);
+        ArrayList<NodeProfile> profilesToSend = this.selectClosestNodesForNode(thisNode, oldestNode,
+                tmpProfilesToSend, VicinityProtocol.MAX_GOSSIP_LENGTH);
         protocol.routingTable.remove(oldestNode); // proactive removal to combat churn
 
         GossipMsg msg = new GossipMsg(profilesToSend, GossipMsg.Types.GOSSIP_QUERY, thisNode);
@@ -88,7 +89,8 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
 
 
             ArrayList<NodeProfile> profilesToSend = this.selectClosestNodesForNode(thisNode,
-                    receivedGossipMsg.getSender().getNodeProfile(), thisNode.getUnionOfAllViews());
+                    receivedGossipMsg.getSender().getNodeProfile(),
+                    thisNode.getUnionOfAllViews(), VicinityProtocol.MAX_GOSSIP_LENGTH);
 
             GossipMsg msg = new GossipMsg(profilesToSend, GossipMsg.Types.GOSSIP_QUERY, thisNode);
             protocol.bitsSent += msg.getSizeInBits();
@@ -105,12 +107,12 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
     }
 
     public synchronized ArrayList<NodeProfile> selectClosestNodesForNode(PolderCastNode thisNode, NodeProfile node,
-                                                                         ArrayList<NodeProfile> nodeSelection) {
+                                                                         ArrayList<NodeProfile> nodeSelection, int maxNodes) {
         ArrayList<NodeProfile> closestNodes;
         Collections.sort(nodeSelection, new VicinityComparator(node));
         // Get up to 20 of the closest nodes
         closestNodes = new ArrayList<NodeProfile>(nodeSelection.subList(0,
-                Math.min(nodeSelection.size(), VicinityProtocol.MAX_GOSSIP_LENGTH)));
+                Math.min(nodeSelection.size(), maxNodes)));
         return closestNodes;
     }
 
@@ -133,7 +135,8 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
         // Consider the union of all views with these nodes
         ArrayList<NodeProfile> candidatesToAdd = thisNode.getUnionOfAllViews();
         // TODO union may contain duplicates
-        candidatesToAdd = this.selectClosestNodesForNode(thisNode, thisNode.getNodeProfile(), candidatesToAdd);
+        candidatesToAdd = this.selectClosestNodesForNode(thisNode, thisNode.getNodeProfile(),
+                candidatesToAdd, VicinityProtocol.MAX_VIEW_SIZE);
         // Remove duplicates
         Set setItems = new LinkedHashSet(candidatesToAdd);
         candidatesToAdd.clear();

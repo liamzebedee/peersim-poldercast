@@ -68,6 +68,7 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
         PolderCastNode thisNode = (PolderCastNode) node;
         RingsProtocol protocol = (RingsProtocol) thisNode.getProtocol(protocolID);
 
+        if(thisNode.getNodeProfile().getSubscriptions().size() == 0) return;
         ArrayList<NodeProfile> profiles = protocol.getLinearView();
         if(profiles.isEmpty()) protocol.bootstrapFromOtherModules(thisNode);
         // Increment age of all nodes
@@ -265,7 +266,6 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
             view.removeNode(nodeProfile);
         }
     }
-
 
 
 

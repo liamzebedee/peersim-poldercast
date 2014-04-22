@@ -36,7 +36,12 @@ protocol.vicinity poldercast.protocols.VicinityProtocol
     transport transportUniformRandom
     step  CYCLE
 }
-include.protocol transportUniformRandom cyclon vicinity
+protocol.rings poldercast.protocols.RingsProtocol
+{
+    transport transportUniformRandom
+    step  CYCLE
+}
+include.protocol transportUniformRandom cyclon vicinity rings
 
 ########################################################### INITIALIZERS SECTION
 # this initializer assigns each node an ID
@@ -68,11 +73,11 @@ include.init poldercastIdAssigner bootstrapper cycleScheduler
 control.viewStats poldercast.controls.ViewStats
 {
     step  1
-    protocol cyclon vicinity
+    protocol cyclon vicinity rings
 }
 control.netStats poldercast.controls.NetStats
 {
     step  1
-    protocol cyclon vicinity
+    protocol cyclon vicinity rings
 }
 include.control viewStats netStats
