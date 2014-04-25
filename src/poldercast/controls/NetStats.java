@@ -4,6 +4,7 @@ import peersim.core.CommonState;
 import peersim.core.Control;
 import peersim.core.Network;
 import poldercast.util.PolderCastNode;
+import tests.controls.BaseControl;
 
 public class NetStats extends BaseControl implements Control {
     public NetStats(String prefix) {

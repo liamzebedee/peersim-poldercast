@@ -97,6 +97,7 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
             protocol.messagesSent++;
             Util.sendMsg(thisNode, receivedGossipMsg.getSender(), msg, protocolID);
 
+
         } else if (receivedGossipMsg.getType() == GossipMsg.Types.GOSSIP_RESPONSE) {
             protocol.mergeNodes(thisNode, receivedGossipMsg.getNodeProfiles());
             protocol.communicationReceivedFromNode(receivedGossipMsg.getSender().getNodeProfile());

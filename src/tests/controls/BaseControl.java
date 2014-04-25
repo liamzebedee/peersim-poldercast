@@ -1,14 +1,13 @@
-package poldercast.controls;
+package tests.controls;
 
 import peersim.config.Configuration;
+import peersim.core.Control;
 import peersim.util.FileNameGenerator;
 
 import java.io.FileOutputStream;
 import java.io.PrintStream;
 
-public class BaseControl {
-    // TODO redundant
-    public static String logName = "base-log";
+public abstract class BaseControl implements Control {
     protected PrintStream out;
     private String fileName;
     private String prefix;
@@ -19,7 +18,7 @@ public class BaseControl {
     }
 
     public void startNewLog() {
-        this.fileName = new FileNameGenerator(prefix + '.', ".log").nextCounterName();
+        this.fileName = new FileNameGenerator(prefix.replaceFirst("control.", "") + '.', ".log").nextCounterName();
         try {
             this.out = new PrintStream(new FileOutputStream(fileName));
         } catch(Exception e) {

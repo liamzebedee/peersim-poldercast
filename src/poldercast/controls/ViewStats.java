@@ -1,20 +1,13 @@
 package poldercast.controls;
 
-import peersim.config.Configuration;
 import peersim.core.CommonState;
 import peersim.core.Control;
 import peersim.core.Network;
-import peersim.util.FileNameGenerator;
 import poldercast.util.NodeProfile;
 import poldercast.util.PolderCastNode;
-
-import java.io.PrintStream;
+import tests.controls.BaseControl;
 
 public class ViewStats extends BaseControl implements Control {
-    static {
-        logName = "view-stats";
-    }
-
     public ViewStats(String prefix) {
         super(prefix);
     }
