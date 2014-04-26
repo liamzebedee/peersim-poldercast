@@ -3,17 +3,16 @@ package poldercast.util;
 import java.util.ArrayList;
 import java.util.Collections;
 
-public class GossipMsg implements SizeInBits {
+public class GossipMsg extends NetworkMsg {
     private final ArrayList<NodeProfile> profiles;
     private final Types type;
-    private final PolderCastNode sender;
 
     public enum Types { GOSSIP_QUERY, GOSSIP_RESPONSE }
 
-    public GossipMsg(ArrayList<NodeProfile> profiles, Types type, PolderCastNode sender) {
+    public GossipMsg(ArrayList<NodeProfile> profiles, Types type, PolderCastBaseNode sender) {
+        super(sender);
         this.profiles = profiles;
         this.type = type;
-        this.sender = sender;
     }
 
     public int getSizeInBits() {
@@ -28,10 +27,6 @@ public class GossipMsg implements SizeInBits {
         ArrayList<NodeProfile> nodeProfiles = new ArrayList<NodeProfile>(this.profiles);
         Collections.copy(nodeProfiles, this.profiles);
         return nodeProfiles;
-    }
-
-    public PolderCastNode getSender() {
-        return this.sender;
     }
 
     public Types getType() { return this.type; }

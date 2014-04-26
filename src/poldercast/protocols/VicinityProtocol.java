@@ -38,7 +38,7 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
     }
 
     public synchronized void nextCycle(Node node, int protocolID) {
-        PolderCastNode thisNode = (PolderCastNode) node;
+        PolderCastBaseNode thisNode = (PolderCastBaseNode) node;
         VicinityProtocol protocol = (VicinityProtocol) thisNode.getProtocol(protocolID);
 
         // Increment the age of all nodes
@@ -72,7 +72,7 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
     }
 
     public synchronized void processEvent(Node node, int protocolID, java.lang.Object event) {
-        PolderCastNode thisNode = (PolderCastNode) node;
+        PolderCastBaseNode thisNode = (PolderCastBaseNode) node;
         VicinityProtocol protocol = (VicinityProtocol) thisNode.getProtocol(protocolID);
         GossipMsg receivedGossipMsg = (GossipMsg) event;
 
@@ -92,7 +92,7 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
                     receivedGossipMsg.getSender().getNodeProfile(),
                     thisNode.getUnionOfAllViews(), VicinityProtocol.MAX_GOSSIP_LENGTH);
 
-            GossipMsg msg = new GossipMsg(profilesToSend, GossipMsg.Types.GOSSIP_QUERY, thisNode);
+            GossipMsg msg = new GossipMsg(profilesToSend, GossipMsg.Types.GOSSIP_RESPONSE, thisNode);
             protocol.bitsSent += msg.getSizeInBits();
             protocol.messagesSent++;
             Util.sendMsg(thisNode, receivedGossipMsg.getSender(), msg, protocolID);
@@ -107,7 +107,7 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
         }
     }
 
-    public synchronized ArrayList<NodeProfile> selectClosestNodesForNode(PolderCastNode thisNode, NodeProfile node,
+    public synchronized ArrayList<NodeProfile> selectClosestNodesForNode(PolderCastBaseNode thisNode, NodeProfile node,
                                                                          ArrayList<NodeProfile> nodeSelection, int maxNodes) {
         ArrayList<NodeProfile> closestNodes;
         Collections.sort(nodeSelection, new VicinityComparator(node));
@@ -117,7 +117,7 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
         return closestNodes;
     }
 
-    public synchronized void mergeNodes(PolderCastNode thisNode, ArrayList<NodeProfile> profiles) {
+    public synchronized void mergeNodes(PolderCastBaseNode thisNode, ArrayList<NodeProfile> profiles) {
         Iterator<NodeProfile> nodeProfileIterator = profiles.iterator();
         while (nodeProfileIterator.hasNext()) {
             NodeProfile profile = nodeProfileIterator.next();
@@ -146,7 +146,7 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
         this.routingTable = candidatesToAdd;
     }
 
-    private void bootstrapFromOtherModules(PolderCastNode thisNode) {
+    private void bootstrapFromOtherModules(PolderCastBaseNode thisNode) {
         // NOTE: although it wasn't explicitly defined in the design paper, intuition tells me this is how it works
         this.mergeNodes(thisNode, new ArrayList<NodeProfile>());
     }
@@ -188,7 +188,7 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
 
     // Returns true if the given node is a member of the neighbor set.
     public boolean contains(Node neighbor) {
-        NodeProfile profile = ((PolderCastNode)neighbor).getNodeProfile();
+        NodeProfile profile = ((PolderCastBaseNode)neighbor).getNodeProfile();
         return this.routingTable.contains(neighbor);
     }
 

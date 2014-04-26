@@ -2,14 +2,12 @@ package poldercast.protocols;
 
 import peersim.cdsim.CDProtocol;
 import peersim.config.Configuration;
-import peersim.config.FastConfig;
 import peersim.core.Linkable;
 import peersim.core.Node;
 import peersim.edsim.EDProtocol;
-import peersim.transport.Transport;
 import poldercast.util.GossipMsg;
 import poldercast.util.NodeProfile;
-import poldercast.util.PolderCastNode;
+import poldercast.util.PolderCastBaseNode;
 import poldercast.util.Util;
 
 import java.util.ArrayList;
@@ -45,7 +43,7 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
     }
 
     public synchronized void nextCycle(Node node, int protocolID) {
-        PolderCastNode thisNode = (PolderCastNode) node;
+        PolderCastBaseNode thisNode = (PolderCastBaseNode) node;
         CyclonProtocol protocol = (CyclonProtocol) thisNode.getProtocol(protocolID);
 
         // Increment the age of all nodes
@@ -77,7 +75,7 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
     }
 
     public synchronized void processEvent(Node node, int protocolID, java.lang.Object event) {
-        PolderCastNode thisNode = (PolderCastNode) node;
+        PolderCastBaseNode thisNode = (PolderCastBaseNode) node;
         CyclonProtocol protocol = (CyclonProtocol) thisNode.getProtocol(protocolID);
         GossipMsg receivedGossipMsg = (GossipMsg) event;
 
@@ -114,7 +112,7 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
         }
     }
 
-    public synchronized void mergeNodes(PolderCastNode thisNode, ArrayList<NodeProfile> profiles) {
+    public synchronized void mergeNodes(PolderCastBaseNode thisNode, ArrayList<NodeProfile> profiles) {
         Iterator<NodeProfile> nodeProfileIterator = profiles.iterator();
         while (nodeProfileIterator.hasNext()) {
             NodeProfile profile = nodeProfileIterator.next();
@@ -162,7 +160,7 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
     // NOTE this method should only be called at node initialization and by a bootstrapping class
     // Cyclon uses gossipping to find and add new neighbours
     public boolean addNeighbor(Node neighbour) {
-        NodeProfile profile = ((PolderCastNode) neighbour).getNodeProfile();
+        NodeProfile profile = ((PolderCastBaseNode) neighbour).getNodeProfile();
 
         if(this.routingTable.size() == 20) {
             throw new RuntimeException("We shouldn't be attempting to bootstrap with more than 20 neighbours");
@@ -178,7 +176,7 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
 
     // Returns true if the given node is a member of the neighbor set.
     public boolean contains(Node neighbor) {
-        NodeProfile profile = ((PolderCastNode)neighbor).getNodeProfile();
+        NodeProfile profile = ((PolderCastBaseNode)neighbor).getNodeProfile();
         return this.routingTable.contains(neighbor);
     }
 

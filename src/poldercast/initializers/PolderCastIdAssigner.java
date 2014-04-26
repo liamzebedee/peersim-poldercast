@@ -4,8 +4,7 @@ import peersim.core.Control;
 import peersim.core.Network;
 import peersim.core.Node;
 import peersim.dynamics.NodeInitializer;
-import poldercast.util.NodeProfile;
-import poldercast.util.PolderCastNode;
+import poldercast.util.PolderCastBaseNode;
 
 public class PolderCastIdAssigner implements Control, NodeInitializer {
     public PolderCastIdAssigner(String prefix) {
@@ -17,7 +16,7 @@ public class PolderCastIdAssigner implements Control, NodeInitializer {
         boolean stop = false;
         int n = Network.size();
         for(int i = 0; i < n; i++) {
-            PolderCastNode node = (PolderCastNode) Network.get(i);
+            PolderCastBaseNode node = (PolderCastBaseNode) Network.get(i);
             node.initModules();
         }
         return stop;
@@ -25,7 +24,7 @@ public class PolderCastIdAssigner implements Control, NodeInitializer {
 
     @Override
     public void initialize(Node n) {
-        PolderCastNode node = (PolderCastNode) n;
+        PolderCastBaseNode node = (PolderCastBaseNode) n;
         node.initModules();
     }
 }

@@ -3,7 +3,7 @@ package poldercast.controls;
 import peersim.core.CommonState;
 import peersim.core.Control;
 import peersim.core.Network;
-import poldercast.util.PolderCastNode;
+import poldercast.util.PolderCastBaseNode;
 import tests.controls.BaseControl;
 
 public class NetStats extends BaseControl implements Control {
@@ -22,7 +22,7 @@ public class NetStats extends BaseControl implements Control {
     public void outputMessageStats() {
         int n = Network.size();
         for(int i=0; i<n; i++) {
-            PolderCastNode node = (PolderCastNode) Network.get(i);
+            PolderCastBaseNode node = (PolderCastBaseNode) Network.get(i);
             out.println(node.toString() + " sent:" + node.getCyclonProtocol().messagesSent + " recv:" + node.getCyclonProtocol().messagesReceived);
         }
     }

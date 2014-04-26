@@ -2,18 +2,17 @@ package poldercast.protocols;
 
 import peersim.cdsim.CDProtocol;
 import peersim.config.Configuration;
-import peersim.config.FastConfig;
+import peersim.core.CommonState;
 import peersim.core.Linkable;
 import peersim.core.Node;
 import peersim.edsim.EDProtocol;
-import peersim.transport.Transport;
 import poldercast.util.*;
 
 import java.util.*;
 
 class RingsTopicView {
-    public ArrayList<NodeProfile> nodesWithLowerID = new ArrayList<NodeProfile>(RingsProtocol.MAX_VIEW_SIZE / 2);
-    public ArrayList<NodeProfile> nodesWithHigherID = new ArrayList<NodeProfile>(RingsProtocol.MAX_VIEW_SIZE / 2);
+    public ArrayList<NodeProfile> nodesWithLowerID = new ArrayList<NodeProfile>();
+    public ArrayList<NodeProfile> nodesWithHigherID = new ArrayList<NodeProfile>();
 
     public RingsTopicView() {}
 
@@ -42,14 +41,19 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
     public int messagesSent = 0;
     public int messagesReceived = 0;
     public Map<ID, RingsTopicView> routingTable = new HashMap<ID, RingsTopicView>();
+    public ArrayList<Integer> receivedEvents = new ArrayList<Integer>();
 
     public final int protocolID;
-    public static final int MAX_GOSSIP_LENGTH = 10;
-    public static final int MAX_VIEW_SIZE = 4;
+    public final byte MAX_GOSSIP_LENGTH;
+    public final byte MAX_VIEW_SIZE;
+    public final byte FANOUT;
     public static final String RINGS = "rings";
 
     public RingsProtocol(String configPrefix) {
         this.protocolID = Configuration.lookupPid(RINGS);
+        this.MAX_GOSSIP_LENGTH = (byte) Configuration.getInt(configPrefix + ".maxGossipLength");
+        this.MAX_VIEW_SIZE = (byte) Configuration.getInt(configPrefix + ".maxViewSize");
+        this.FANOUT = (byte) Configuration.getInt(configPrefix + ".fanout");
     }
 
     @Override
@@ -65,7 +69,7 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
     }
 
     public synchronized void nextCycle(Node node, int protocolID) {
-        PolderCastNode thisNode = (PolderCastNode) node;
+        PolderCastBaseNode thisNode = (PolderCastBaseNode) node;
         RingsProtocol protocol = (RingsProtocol) thisNode.getProtocol(protocolID);
 
         if(thisNode.getNodeProfile().getSubscriptions().size() == 0) return;
@@ -90,41 +94,89 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
         GossipMsg msg = new GossipMsg(nodesToSend, GossipMsg.Types.GOSSIP_QUERY, thisNode);
         protocol.bitsSent += msg.getSizeInBits();
         protocol.messagesSent++;
+        if(thisNode.measureTopicSubscriptionLoad) thisNode.load++;
 
         Util.sendMsg(thisNode, oldestNode.getNode(), msg, protocolID);
     }
 
     public synchronized void processEvent(Node node, int protocolID, java.lang.Object event) {
-        PolderCastNode thisNode = (PolderCastNode) node;
+        PolderCastBaseNode thisNode = (PolderCastBaseNode) node;
         RingsProtocol protocol = (RingsProtocol) thisNode.getProtocol(protocolID);
-        GossipMsg receivedGossipMsg = (GossipMsg) event;
 
-        if (!(event instanceof GossipMsg)) {
-            throw new RuntimeException("RingsProtocol should only receive GossipMsg events");
-        }
-
-        protocol.bitsReceived += receivedGossipMsg.getSizeInBits();
+        NetworkMsg networkMsg = (NetworkMsg) event;
         protocol.messagesReceived++;
+        protocol.bitsReceived += networkMsg.getSizeInBits();
 
-        if (receivedGossipMsg.getType() == GossipMsg.Types.GOSSIP_QUERY) {
-            protocol.mergeNodes(thisNode, receivedGossipMsg.getNodeProfiles());
+        if(event instanceof GossipMsg) {
+            GossipMsg receivedGossipMsg = (GossipMsg) event;
 
-            ArrayList<NodeProfile> nodesToSend = protocol.selectNodesToSend(thisNode, receivedGossipMsg.getSender().getNodeProfile());
-            GossipMsg msg = new GossipMsg(nodesToSend, GossipMsg.Types.GOSSIP_QUERY, thisNode);
-            protocol.bitsSent += msg.getSizeInBits();
-            protocol.messagesSent++;
+            if (receivedGossipMsg.getType() == GossipMsg.Types.GOSSIP_QUERY) {
+                protocol.mergeNodes(thisNode, receivedGossipMsg.getNodeProfiles());
 
-            Util.sendMsg(thisNode, receivedGossipMsg.getSender(), msg, protocolID);
+                ArrayList<NodeProfile> nodesToSend = protocol.selectNodesToSend(thisNode, receivedGossipMsg.getSender().getNodeProfile());
+                GossipMsg msg = new GossipMsg(nodesToSend, GossipMsg.Types.GOSSIP_RESPONSE, thisNode);
+                protocol.bitsSent += msg.getSizeInBits();
+                protocol.messagesSent++;
+                if(thisNode.measureTopicSubscriptionLoad) thisNode.load++;
+                Util.sendMsg(thisNode, receivedGossipMsg.getSender(), msg, protocolID);
 
-        } else if (receivedGossipMsg.getType() == GossipMsg.Types.GOSSIP_RESPONSE) {
-            protocol.mergeNodes(thisNode, receivedGossipMsg.getNodeProfiles());
-            protocol.communicationReceivedFromNode(receivedGossipMsg.getSender().getNodeProfile());
+            } else if (receivedGossipMsg.getType() == GossipMsg.Types.GOSSIP_RESPONSE) {
+                protocol.mergeNodes(thisNode, receivedGossipMsg.getNodeProfiles());
+                protocol.communicationReceivedFromNode(receivedGossipMsg.getSender().getNodeProfile());
+
+            } else {
+                throw new RuntimeException("Bad GossipMsg received by RingsProtocol");
+            }
+        } else if(event instanceof PublishMsg) {
+            PublishMsg receivedPublishMsg = (PublishMsg) event;
+
+            if(protocol.receivedEvents.contains(receivedPublishMsg.getUniqueIdentifier())) return;
+            protocol.receivedEvents.add(receivedPublishMsg.getUniqueIdentifier());
+
+            RingsTopicView ringsTopicView = protocol.routingTable.get(receivedPublishMsg.getTopic());
+            PublishMsg publishMsgToSend = new PublishMsg(receivedPublishMsg.getEvent(), receivedPublishMsg.getTopic(), thisNode);
+            ArrayList<NodeProfile> nodesToPropagateEventTo = new ArrayList<NodeProfile>();
+            if(ringsTopicView.contains(receivedPublishMsg.getSender().getNodeProfile())) {
+                // If the event has been received through the node’s successor (or predecessor),
+                // it is propagated down the line to its predecessor (or successor) and
+                // (F - 1) arbitrary subscribers of the topic (as sourced from Vicinity)
+                if(ringsTopicView.nodesWithHigherID.contains(receivedPublishMsg.getSender().getNodeProfile())) {
+                    // Received through successor, propagate to predecessor
+                    /*
+                     * TODO in the paper the view size is set to be 2 so we have backup nodes
+                     * TODO it's never mentioned, but I assume that if sending to one of these nodes fails
+                     * TODO we attempt to send to the next best
+                     */
+                    // TODO solution is to always check Node.isUp(), this works with churn model
+                    nodesToPropagateEventTo.add(ringsTopicView.nodesWithHigherID.get(0));
+                } else {
+                    // Received through predecessor, propagate to successor
+                    nodesToPropagateEventTo.add(ringsTopicView.nodesWithLowerID.get(0));
+                }
+                ArrayList<NodeProfile> candidates = new ArrayList<NodeProfile>();
+                for(NodeProfile nodeCandidate : thisNode.getVicinityProtocol().getRoutingTableCopy()) {
+                    if(nodeCandidate.getSubscriptions().keySet().contains(receivedPublishMsg.getTopic())) candidates.add(nodeCandidate);
+                }
+                Collections.shuffle(candidates, CommonState.r);
+                Iterator<NodeProfile> iter = candidates.iterator();
+                int i = 0;
+                while(iter.hasNext() && (i < (protocol.FANOUT - 1))) {
+                    nodesToPropagateEventTo.add(iter.next());
+                    i++;
+                }
+
+            } else {
+                // If the event was received through some third node, or if it originated at the node
+                // in question, it is propagated to both the successor and the predecessor,
+                // as well as to (F - 2) arbitrary subscribers of the topic
+
+            }
 
         } else {
-            throw new RuntimeException("Bad GossipMsg");
+            throw new RuntimeException("RingsProtocol should only receive GossipMsg/PublishMsg events");
         }
     }
-    public synchronized ArrayList<NodeProfile> selectNodesToSend(PolderCastNode thisNode, NodeProfile gossipNode) {
+    public synchronized ArrayList<NodeProfile> selectNodesToSend(PolderCastBaseNode thisNode, NodeProfile gossipNode) {
         ArrayList<ID> subscriptionsInCommon = new ArrayList<ID>(thisNode.getNodeProfile().getSubscriptions().keySet());
         subscriptionsInCommon.retainAll(gossipNode.getSubscriptions().keySet());
 
@@ -157,14 +209,14 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
             int justHigherIndex;
 
             // While we still need nodes to fill the justLower list
-            while(((RingsProtocol.MAX_VIEW_SIZE / 2) - justLower.size()) > 0) {
+            while(((this.MAX_VIEW_SIZE / 2) - justLower.size()) > 0) {
                 justLowerIndex = (indexOfGossipNode - 1) % justLower.size();
                 NodeProfile toAdd = candidatesThatShareInterest.get(justLowerIndex);
                 if(justLower.contains(toAdd)) break;
                 else justLower.add(toAdd);
             }
             // While we still need nodes to fill the justHigher list
-            while(((RingsProtocol.MAX_VIEW_SIZE / 2) - justHigher.size()) > 0) {
+            while(((this.MAX_VIEW_SIZE / 2) - justHigher.size()) > 0) {
                 justHigherIndex  = (indexOfGossipNode + 1) % justHigher.size();
                 NodeProfile toAdd = candidatesThatShareInterest.get(justHigherIndex);
                 if(justHigher.contains(toAdd)) break;
@@ -176,15 +228,15 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
         }
 
         ArrayList<NodeProfile> listOfNodesToSend = new ArrayList<NodeProfile>(nodesToSend);
-        if(nodesToSend.size() > RingsProtocol.MAX_GOSSIP_LENGTH) {
-            Collections.shuffle(listOfNodesToSend);
-            listOfNodesToSend = new ArrayList<NodeProfile>(listOfNodesToSend.subList(0, RingsProtocol.MAX_GOSSIP_LENGTH));
+        if(nodesToSend.size() > this.MAX_GOSSIP_LENGTH) {
+            Collections.shuffle(listOfNodesToSend, CommonState.r);
+            listOfNodesToSend = new ArrayList<NodeProfile>(listOfNodesToSend.subList(0, this.MAX_GOSSIP_LENGTH));
         }
 
         return listOfNodesToSend;
     }
 
-    public synchronized void mergeNodes(PolderCastNode thisNode, ArrayList<NodeProfile> profiles) {
+    public synchronized void mergeNodes(PolderCastBaseNode thisNode, ArrayList<NodeProfile> profiles) {
         Iterator<NodeProfile> nodeProfileIterator = profiles.iterator();
         while (nodeProfileIterator.hasNext()) {
             NodeProfile profile = nodeProfileIterator.next();
@@ -223,14 +275,14 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
             int justHigherIndex;
 
             // While we still need nodes to fill the justLower list
-            while(((RingsProtocol.MAX_VIEW_SIZE / 2) - justLower.size()) > 0) {
+            while(((this.MAX_VIEW_SIZE / 2) - justLower.size()) > 0) {
                 justLowerIndex = (indexOfOurNode - 1) % justLower.size();
                 NodeProfile toAdd = candidatesThatShareInterest.get(justLowerIndex);
                 if(justLower.contains(toAdd)) break;
                 else justLower.add(toAdd);
             }
             // While we still need nodes to fill the justHigher list
-            while(((RingsProtocol.MAX_VIEW_SIZE / 2) - justHigher.size()) > 0) {
+            while(((this.MAX_VIEW_SIZE / 2) - justHigher.size()) > 0) {
                 justHigherIndex  = (indexOfOurNode + 1) % justHigher.size();
                 NodeProfile toAdd = candidatesThatShareInterest.get(justHigherIndex);
                 if(justHigher.contains(toAdd)) break;
@@ -243,7 +295,7 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
 
     }
 
-    private void bootstrapFromOtherModules(PolderCastNode thisNode) {
+    private void bootstrapFromOtherModules(PolderCastBaseNode thisNode) {
         this.mergeNodes(thisNode, new ArrayList<NodeProfile>());
     }
 
@@ -264,6 +316,26 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
     private synchronized void removeNode(NodeProfile nodeProfile) {
         for(RingsTopicView view : this.routingTable.values()) {
             view.removeNode(nodeProfile);
+        }
+    }
+
+    public void publishEvent(ID topic, Object event) {
+        // TODO implement
+    }
+
+    public synchronized void changeInSubscriptions(PolderCastBaseNode thisNode) {
+        // Add any new RingsTopicViews for new subscriptions
+        Set<ID> thisNodesSubscriptions = thisNode.getNodeProfile().getSubscriptions().keySet();
+        for(ID subscription : thisNodesSubscriptions) {
+            if(!this.routingTable.containsKey(subscription)) {
+                this.routingTable.put(subscription, new RingsTopicView());
+            }
+        }
+        // Remove any RingsTopicsViews for old subscriptions
+        Iterator<Map.Entry<ID, RingsTopicView>> iter = this.routingTable.entrySet().iterator();
+        while (iter.hasNext()) {
+            Map.Entry<ID, RingsTopicView> entry = iter.next();
+            if(!thisNodesSubscriptions.contains(entry.getKey())) iter.remove();
         }
     }
 
@@ -293,7 +365,7 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
 
     // Returns true if the given node is a member of the neighbor set.
     public boolean contains(Node neighbor) {
-        NodeProfile profile = ((PolderCastNode) neighbor).getNodeProfile();
+        NodeProfile profile = ((PolderCastBaseNode) neighbor).getNodeProfile();
         for(RingsTopicView ringsTopicView : this.routingTable.values()) {
             if(ringsTopicView.contains(profile)) return true;
         }

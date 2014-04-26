@@ -6,15 +6,15 @@ import peersim.core.GeneralNode;
 import poldercast.protocols.CyclonProtocol;
 import poldercast.protocols.RingsProtocol;
 import poldercast.protocols.VicinityProtocol;
+import tests.util.BaseNode;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Map;
 
-public class PolderCastNode extends GeneralNode {
+public class PolderCastBaseNode extends BaseNode  {
     private NodeProfile nodeProfile;
 
-    public PolderCastNode(String configPrefix) {
+    public PolderCastBaseNode(String configPrefix) {
         super(configPrefix);
     }
 
@@ -46,5 +46,16 @@ public class PolderCastNode extends GeneralNode {
 
     public String toString() {
         return this.nodeProfile.toString();
+    }
+
+    @Override
+    public void publish(ID topic, Object event) {
+        this.getRingsProtocol().publishEvent(topic, event);
+    }
+
+    @Override
+    public void subscribe(ID topic) {
+        this.nodeProfile.addSubscription(topic);
+        this.getRingsProtocol().changeInSubscriptions(this);
     }
 }

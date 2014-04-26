@@ -4,7 +4,7 @@ import peersim.core.CommonState;
 import peersim.core.Control;
 import peersim.core.Network;
 import poldercast.util.NodeProfile;
-import poldercast.util.PolderCastNode;
+import poldercast.util.PolderCastBaseNode;
 import tests.controls.BaseControl;
 
 public class ViewStats extends BaseControl implements Control {
@@ -26,7 +26,7 @@ public class ViewStats extends BaseControl implements Control {
     public void summariseViewDegrees() {
         int n = Network.size();
         for(int i=0; i<n; i++) {
-            PolderCastNode node = (PolderCastNode) Network.get(i);
+            PolderCastBaseNode node = (PolderCastBaseNode) Network.get(i);
             this.out.println("[" + node.toString() + "]");
             out.println("Cyclon : " + node.getCyclonProtocol().degree());
             for(NodeProfile profile : node.getCyclonProtocol().getRoutingTableCopy()) {

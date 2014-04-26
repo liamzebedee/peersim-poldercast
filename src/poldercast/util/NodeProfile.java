@@ -1,5 +1,7 @@
 package poldercast.util;
 
+import poldercast.protocols.RingsProtocol;
+
 import java.util.Map;
 
 public class NodeProfile implements SizeInBits {
@@ -7,9 +9,10 @@ public class NodeProfile implements SizeInBits {
     private ID id;
     // mapping between topic ID and priority of finding nodes for that topic
     private Map<ID, Byte> subscriptions;
-    private PolderCastNode node;
+    private PolderCastBaseNode node;
+    static final byte DEFAULT_PRIORITY = RingsProtocol.MAX_VIEW_SIZE; // priority is defined as the number of nodes we need to fill the view
 
-    public NodeProfile(PolderCastNode node, ID id, Map<ID,Byte> subscriptions) {
+    public NodeProfile(PolderCastBaseNode node, ID id, Map<ID,Byte> subscriptions) {
         this.age = 0;
         this.id = id;
         this.subscriptions = subscriptions;
@@ -40,13 +43,17 @@ public class NodeProfile implements SizeInBits {
         return size;
     }
 
-    public PolderCastNode getNode() { return node; }
+    public PolderCastBaseNode getNode() { return node; }
 
     public String toString() {
         return this.id.toString();
     }
 
     public Map<ID, Byte> getSubscriptions() { return this.subscriptions; }
+
+    public synchronized void addSubscription(ID topic) {
+        this.subscriptions.put(topic, DEFAULT_PRIORITY);
+    }
 
     @Override
     public boolean equals(Object nodeProfile) {
