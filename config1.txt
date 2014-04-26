@@ -17,7 +17,11 @@ random.seed 34245324
 network.size SIZE
 simulation.endtime ENDTIME
 simulation.logtime CYCLE
-network.node poldercast.util.PolderCastNode
+network.node poldercast.util.PolderCastBaseNode
+{
+    measureTopicSubscriptionLoad true
+    measureTopicPublicationLoad false
+}
 
 ########################################################### PROTOCOLS SECTION
 protocol.transportUniformRandom  peersim.transport.UniformRandomTransport
@@ -40,6 +44,9 @@ protocol.rings poldercast.protocols.RingsProtocol
 {
     transport transportUniformRandom
     step  CYCLE
+    maxViewSize 20
+    maxGossipLength 10
+    fanout 2
 }
 include.protocol transportUniformRandom cyclon vicinity rings
 
@@ -70,14 +77,13 @@ include.init poldercastIdAssigner bootstrapper cycleScheduler
 
 #control.dyanmicNetwork.init.1 poldercast.initializers.PolderCastIdAssigner
 
-control.viewStats poldercast.controls.ViewStats
+control.topicSubscription tests.controls.TopicSubscription
 {
-    step  1
-    protocol cyclon vicinity rings
+    step CYCLE
 }
-control.netStats poldercast.controls.NetStats
+control.loadDistribution tests.controls.LoadDistribution
 {
-    step  1
-    protocol cyclon vicinity rings
+    step CYCLE
+    protocol rings
 }
-include.control viewStats netStats
+include.control loadDistribution

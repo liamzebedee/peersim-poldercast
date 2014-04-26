@@ -16,6 +16,6 @@ public abstract class BaseNode extends GeneralNode {
         this.measureTopicPublicationLoad = Configuration.getBoolean(configPrefix + ".measureTopicPublicationLoad");
     }
 
-    public abstract void publish(ID topic, Object event);
+    public abstract void publish(ID topic, byte[] event);
     public abstract void subscribe(ID topic);
 }

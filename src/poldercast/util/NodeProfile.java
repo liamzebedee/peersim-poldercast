@@ -10,7 +10,6 @@ public class NodeProfile implements SizeInBits {
     // mapping between topic ID and priority of finding nodes for that topic
     private Map<ID, Byte> subscriptions;
     private PolderCastBaseNode node;
-    static final byte DEFAULT_PRIORITY = RingsProtocol.MAX_VIEW_SIZE; // priority is defined as the number of nodes we need to fill the view
 
     public NodeProfile(PolderCastBaseNode node, ID id, Map<ID,Byte> subscriptions) {
         this.age = 0;
@@ -52,7 +51,9 @@ public class NodeProfile implements SizeInBits {
     public Map<ID, Byte> getSubscriptions() { return this.subscriptions; }
 
     public synchronized void addSubscription(ID topic) {
-        this.subscriptions.put(topic, DEFAULT_PRIORITY);
+        // priority is defined as the number of nodes we need to fill the view
+        byte defaultPriority = this.getNode().getRingsProtocol().MAX_VIEW_SIZE;
+        this.subscriptions.put(topic, defaultPriority);
     }
 
     @Override

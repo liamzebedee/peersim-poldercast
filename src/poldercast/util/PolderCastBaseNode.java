@@ -49,8 +49,8 @@ public class PolderCastBaseNode extends BaseNode  {
     }
 
     @Override
-    public void publish(ID topic, Object event) {
-        this.getRingsProtocol().publishEvent(topic, event);
+    public void publish(ID topic, byte[] event) {
+        this.getRingsProtocol().publishEvent(this, topic, event);
     }
 
     @Override

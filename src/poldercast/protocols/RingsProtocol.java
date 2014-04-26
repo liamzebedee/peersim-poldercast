@@ -153,29 +153,53 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
                     // Received through predecessor, propagate to successor
                     nodesToPropagateEventTo.add(ringsTopicView.nodesWithLowerID.get(0));
                 }
-                ArrayList<NodeProfile> candidates = new ArrayList<NodeProfile>();
-                for(NodeProfile nodeCandidate : thisNode.getVicinityProtocol().getRoutingTableCopy()) {
-                    if(nodeCandidate.getSubscriptions().keySet().contains(receivedPublishMsg.getTopic())) candidates.add(nodeCandidate);
-                }
-                Collections.shuffle(candidates, CommonState.r);
-                Iterator<NodeProfile> iter = candidates.iterator();
-                int i = 0;
-                while(iter.hasNext() && (i < (protocol.FANOUT - 1))) {
-                    nodesToPropagateEventTo.add(iter.next());
-                    i++;
-                }
+
+                nodesToPropagateEventTo.addAll(protocol.getArbitrarySubscribersOfTopic(thisNode, receivedPublishMsg.getTopic(),
+                        protocol.FANOUT - 1));
+                protocol.propagateEvent(thisNode, nodesToPropagateEventTo, publishMsgToSend);
 
             } else {
                 // If the event was received through some third node, or if it originated at the node
                 // in question, it is propagated to both the successor and the predecessor,
                 // as well as to (F - 2) arbitrary subscribers of the topic
-
+                nodesToPropagateEventTo.add(ringsTopicView.nodesWithHigherID.get(0));
+                nodesToPropagateEventTo.add(ringsTopicView.nodesWithLowerID.get(0));
+                nodesToPropagateEventTo.addAll(protocol.getArbitrarySubscribersOfTopic(thisNode, receivedPublishMsg.getTopic(),
+                        protocol.FANOUT - 2));
+                protocol.propagateEvent(thisNode, nodesToPropagateEventTo, publishMsgToSend);
             }
 
         } else {
             throw new RuntimeException("RingsProtocol should only receive GossipMsg/PublishMsg events");
         }
     }
+
+    private void propagateEvent(PolderCastBaseNode thisNode, ArrayList<NodeProfile> nodesToPropagateEventTo, PublishMsg publishMsgToSend) {
+        for(NodeProfile nodeToPropagateEventTo : nodesToPropagateEventTo) {
+            this.bitsSent += publishMsgToSend.getSizeInBits();
+            this.messagesSent++;
+            if(thisNode.measureTopicPublicationLoad) thisNode.load++;
+
+            Util.sendMsg(thisNode, nodeToPropagateEventTo.getNode(), publishMsgToSend, protocolID);
+        }
+    }
+
+    private ArrayList<NodeProfile> getArbitrarySubscribersOfTopic(PolderCastBaseNode thisNode, ID topic, int n) {
+        ArrayList<NodeProfile> arbitrarySubscribers = new ArrayList<NodeProfile>();
+        ArrayList<NodeProfile> candidates = new ArrayList<NodeProfile>();
+        for(NodeProfile nodeCandidate : thisNode.getVicinityProtocol().getRoutingTableCopy()) {
+            if(nodeCandidate.getSubscriptions().keySet().contains(topic)) candidates.add(nodeCandidate);
+        }
+        Collections.shuffle(candidates, CommonState.r);
+        Iterator<NodeProfile> iter = candidates.iterator();
+        int i = 0;
+        while(iter.hasNext() && (i < n)) {
+            arbitrarySubscribers.add(iter.next());
+            i++;
+        }
+        return arbitrarySubscribers;
+    }
+
     public synchronized ArrayList<NodeProfile> selectNodesToSend(PolderCastBaseNode thisNode, NodeProfile gossipNode) {
         ArrayList<ID> subscriptionsInCommon = new ArrayList<ID>(thisNode.getNodeProfile().getSubscriptions().keySet());
         subscriptionsInCommon.retainAll(gossipNode.getSubscriptions().keySet());
@@ -319,8 +343,15 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
         }
     }
 
-    public void publishEvent(ID topic, Object event) {
-        // TODO implement
+    public void publishEvent(PolderCastBaseNode thisNode, ID topic, byte[] event) {
+        RingsTopicView ringsTopicView = this.routingTable.get(topic);
+        PublishMsg publishMsgToSend = new PublishMsg(event, topic, thisNode);
+        ArrayList<NodeProfile> nodesToPropagateEventTo = new ArrayList<NodeProfile>();
+        nodesToPropagateEventTo.add(ringsTopicView.nodesWithHigherID.get(0));
+        nodesToPropagateEventTo.add(ringsTopicView.nodesWithLowerID.get(0));
+        nodesToPropagateEventTo.addAll(this.getArbitrarySubscribersOfTopic(thisNode, topic,
+                this.FANOUT - 2));
+        this.propagateEvent(thisNode, nodesToPropagateEventTo, publishMsgToSend);
     }
 
     public synchronized void changeInSubscriptions(PolderCastBaseNode thisNode) {
