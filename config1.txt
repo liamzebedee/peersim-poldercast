@@ -1,6 +1,7 @@
 SIZE 25
 
 NUM_BOOTSTRAP_NODES 4
+NUM_TOPICS 1000
 
 # parameters of periodic execution
 CYCLES 50*CYCLE
@@ -54,15 +55,22 @@ include.protocol transportUniformRandom cyclon vicinity rings
 # this initializer assigns each node an ID
 init.poldercastIdAssigner poldercast.initializers.PolderCastIdAssigner
 
-init.bootstrapper WireKOut
-init.bootstrapper.protocol cyclon
-init.bootstrapper.k NUM_BOOTSTRAP_NODES
-init.bootstrapper.undir true
+# this adds initial nodes into the cyclon view
+init.bootstrapper WireKOut {
+    protocol cyclon
+    k NUM_BOOTSTRAP_NODES
+    undir true
+}
 
-init.cycleScheduler CDScheduler
-# list of cycle protocols separated by whitespace
-init.cycleScheduler.protocol cyclon vicinity
-#init.cycleScheduler.randstart
+init.cycleScheduler CDScheduler {
+    # list of cycle protocols separated by whitespace
+    protocol cyclon vicinity rings
+}
+
+init.subscriptionRelationshipInitializer tests.initializers.SubscriptionRelationshipInitializer {
+    numberOfNodes SIZE
+    numberOfTopics NUM_TOPICS
+}
 
 # the ordered sequence of initializers that must be run
 include.init poldercastIdAssigner bootstrapper cycleScheduler
