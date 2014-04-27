@@ -71,7 +71,7 @@ init.cycleScheduler CDScheduler
 
 init.subscriptionRelationshipInitializer tests.initializers.SubscriptionRelationshipInitializer
 {
-    numberOfNodes SIZE
+    numberOfNodes 10000
     numberOfTopics NUM_TOPICS
     datasetFile /media/liamzebedee/Windows7_OS/Users/liamzebedee/Dropbox/0 Code/peersim-poldercast/misc/network.bson
 }

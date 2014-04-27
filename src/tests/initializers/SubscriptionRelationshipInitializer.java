@@ -2,6 +2,7 @@ package tests.initializers;
 
 import com.github.kohanyirobert.ebson.BsonDocument;
 import com.github.kohanyirobert.ebson.BsonDocuments;
+import com.google.common.collect.Sets;
 import com.google.common.io.Files;
 import com.sun.org.apache.xerces.internal.impl.xs.opti.DefaultDocument;
 import peersim.config.Configuration;
@@ -42,31 +43,14 @@ public class SubscriptionRelationshipInitializer implements NodeInitializer {
     our publishers (the value of X depends on the experiment).
     Subscriptions of users outside the universe&rsquo;s publishers
     were pruned.
-
-    objective: form list of 10K nodes that have pub-sub relationships
-
-    open twitter dataset
-    parse into list of nodes and their subsequent subscriptions = sample.{nodes,subscriptions}
-    nodesForSimulation = []
-    subscriptionSeedSet = select at random 10 subscriptions from sample.subscriptions
-    subiter = subscriptionSeedSet.iter
-    while nodesForSimulation.size < 10000:
-        nodesForSimulation += getSubscribers(subiter.next)
-    X = 1000
-    subscriptionSpace = select X-most subscribed-to topics out of nodesForSimulation
-    for node in nodesForSimulation:
-        prune any subscriptions not found in subscriptionSpace
-
-    1. randomly select a small seed set of topics from the sample = seed set
-    2. gather list of all users subscribed to at least one topic in the seed set = universe
-    3. select X-most subscribed-to topics to be the subscriptionSpace
-    4. subscriptions of users outside the universe's subscriptionSpace were pruned
     "Note that using the most popular publishers does not bias correlation, as our seed set is unbiased"
      */
 
     public final int NUMBER_OF_NODES;
     public final int NUMBER_OF_TOPICS;
-    private HashMap<Integer, HashSet<Integer>> nodesForSimulation = new HashMap<Integer, HashSet<Integer>>();
+    private LinkedHashMap<Integer, HashSet<Integer>> nodesForSimulation = new LinkedHashMap<Integer, HashSet<Integer>>();
+    // Rolling index for the interests we are going to set
+    private int initializerIndex = 0;
 
     public SubscriptionRelationshipInitializer(String configPrefix) {
         this.NUMBER_OF_NODES = Configuration.getInt(configPrefix + ".numberOfNodes");
@@ -95,27 +79,26 @@ public class SubscriptionRelationshipInitializer implements NodeInitializer {
             sample.put(node, subscriptions);
         }
 
-        // subscriptionSeedSet = select at random 10 subscriptions from sample.subscriptions
+        // 1. randomly select a small seed set of topics from the sample = seed set
+        final int NUM_SEEDS = subscriptionSpace.size();
         HashSet<Integer> subscriptionSeedSet = new HashSet<Integer>();
         ArrayList<Integer> tmpSubscriptionSpace = new ArrayList<Integer>(subscriptionSpace);
         Collections.shuffle(tmpSubscriptionSpace, CommonState.r);
-        for(int i = 0; (i < 10); i++) {
-            // while we haven't gotten 10 unique subs
+        for(int i = 0; i < NUM_SEEDS; i++) {
             subscriptionSeedSet.add(tmpSubscriptionSpace.get(i));
         }
-        System.out.println(subscriptionSeedSet.toString());
-
-        // 1. randomly select a small seed set of topics from the sample = seed set
-
 
         // 2. gather list of all users subscribed to at least one topic in the seed set = universe
-        Iterator<Integer> subiter = subscriptionSeedSet.iterator();
-        while(nodesForSimulation.size() < this.NUMBER_OF_NODES) {
-            int node = subiter.next();
-            nodesForSimulation.put(node, nodesForSimulation.get(node));
+        Iterator<Map.Entry<Integer, HashSet<Integer>>> subiter = sample.entrySet().iterator();
+        while(nodesForSimulation.size() < this.NUMBER_OF_NODES && subiter.hasNext()) {
+            Map.Entry<Integer, HashSet<Integer>> nodeWithSubscriptions = subiter.next();
+            // Add node if it is subscribed to at least one topic of the seed set
+            if(!Sets.intersection(nodeWithSubscriptions.getValue(), subscriptionSeedSet).isEmpty()) {
+                nodesForSimulation.put(nodeWithSubscriptions.getKey(), nodeWithSubscriptions.getValue());
+            }
         }
 
-        // 3. select X-most subscribed-to topics out of nodesForSimulation
+        // 3. select X-most subscribed-to topics out of the subscriptions of the nodesForSimulation
         HashSet<Integer> mostSubscribedToTopics = new HashSet<Integer>(this.NUMBER_OF_TOPICS);
         HashMap<Integer, Integer> mapOfTopicToPopularity = new HashMap<Integer, Integer>();
         // Do a tally of most popular topics
@@ -144,6 +127,8 @@ public class SubscriptionRelationshipInitializer implements NodeInitializer {
                 if(! mostSubscribedToTopics.contains(iter.next())) iter.remove();
             }
         }
+
+        // 5. prune nodes until size is at NUMBER_OF_NODES
     }
 
     /**
@@ -155,30 +140,12 @@ public class SubscriptionRelationshipInitializer implements NodeInitializer {
         }
     }
 
-    public void initSQLDb() {
-        // load the sqlite-JDBC driver using the current class loader
-        try { Class.forName("org.sqlite.JDBC"); } catch(ClassNotFoundException e) { e.printStackTrace(); }
-        Connection connection = null;
-        try {
-            // create a database connection
-            connection = DriverManager.getConnection("jdbc:sqlite:dataset1.db");
-            Statement statement = connection.createStatement();
-            statement.setQueryTimeout(50);
-            statement.execute("SELECT *");
-        } catch(SQLException e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                if(connection != null) connection.close();
-            }
-            catch(SQLException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
     @Override
     public void initialize(Node node) {
-
+        BaseNode baseNode = (BaseNode) node;
+        HashSet<Integer> subscriptions = new ArrayList<HashSet<Integer>>(this.nodesForSimulation.values() ).get(this.initializerIndex);
+        // TODO convert subscription to an ID appropriate for the system
+        //for(int sub : subscriptions) baseNode.subscribe(sub);
+        initializerIndex = (initializerIndex + 1) % this.NUMBER_OF_NODES;
     }
 }
