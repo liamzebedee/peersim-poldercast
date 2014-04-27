@@ -1,7 +1,7 @@
 SIZE 25
 
 NUM_BOOTSTRAP_NODES 4
-NUM_TOPICS 1000
+NUM_TOPICS 100
 
 # parameters of periodic execution
 CYCLES 50*CYCLE
@@ -56,35 +56,30 @@ include.protocol transportUniformRandom cyclon vicinity rings
 init.poldercastIdAssigner poldercast.initializers.PolderCastIdAssigner
 
 # this adds initial nodes into the cyclon view
-init.bootstrapper WireKOut {
+init.bootstrapper WireKOut
+{
     protocol cyclon
     k NUM_BOOTSTRAP_NODES
     undir true
 }
 
-init.cycleScheduler CDScheduler {
+init.cycleScheduler CDScheduler
+{
     # list of cycle protocols separated by whitespace
     protocol cyclon vicinity rings
 }
 
-init.subscriptionRelationshipInitializer tests.initializers.SubscriptionRelationshipInitializer {
+init.subscriptionRelationshipInitializer tests.initializers.SubscriptionRelationshipInitializer
+{
     numberOfNodes SIZE
     numberOfTopics NUM_TOPICS
+    datasetFile "/home/liamzebedee/Documents/tmp/network.txt"
 }
 
 # the ordered sequence of initializers that must be run
-include.init poldercastIdAssigner bootstrapper cycleScheduler
+include.init poldercastIdAssigner bootstrapper cycleScheduler subscriptionRelationshipInitializer
 
 ########################################################### CONTROLS SECTION
-#control.dyanmicNetwork peersim.dynamics.DynamicNetwork
-#control.dyanmicNetwork.add 1
-
-#control.dyanmicNetwork.init.0 RandNI
-#control.dyanmicNetwork.init.0.k 1
-#control.dyanmicNetwork.init.0.protocol cyclon
-
-#control.dyanmicNetwork.init.1 poldercast.initializers.PolderCastIdAssigner
-
 control.topicSubscription tests.controls.TopicSubscription
 {
     step CYCLE

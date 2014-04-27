@@ -65,7 +65,7 @@ public class SubscriptionRelationshipInitializer implements NodeInitializer {
     public SubscriptionRelationshipInitializer(String configPrefix) {
         this.NUMBER_OF_NODES = Configuration.getInt(configPrefix + ".numberOfNodes");
         this.NUMBER_OF_TOPICS = Configuration.getInt(configPrefix + ".numberOfTopics");
-        String datasetFile = Configuration.getString(configPrefix + "datasetFile");
+        String datasetFile = Configuration.getString(configPrefix + ".datasetFile");
 
         HashSet<Integer> subscriptionSpace = new HashSet<Integer>();
         HashMap<Integer, HashSet<Integer>> sample = new HashMap<Integer, HashSet<Integer>>();
