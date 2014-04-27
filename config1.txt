@@ -73,11 +73,11 @@ init.subscriptionRelationshipInitializer tests.initializers.SubscriptionRelation
 {
     numberOfNodes SIZE
     numberOfTopics NUM_TOPICS
-    datasetFile "/home/liamzebedee/Documents/tmp/network.txt"
+    datasetFile /media/liamzebedee/Windows7_OS/Users/liamzebedee/Dropbox/0 Code/peersim-poldercast/misc/network.bson
 }
 
 # the ordered sequence of initializers that must be run
-include.init poldercastIdAssigner bootstrapper cycleScheduler subscriptionRelationshipInitializer
+include.init  subscriptionRelationshipInitializer
 
 ########################################################### CONTROLS SECTION
 control.topicSubscription tests.controls.TopicSubscription

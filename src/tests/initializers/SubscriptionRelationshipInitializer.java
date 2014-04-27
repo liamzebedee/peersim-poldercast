@@ -1,5 +1,9 @@
 package tests.initializers;
 
+import com.github.kohanyirobert.ebson.BsonDocument;
+import com.github.kohanyirobert.ebson.BsonDocuments;
+import com.google.common.io.Files;
+import com.sun.org.apache.xerces.internal.impl.xs.opti.DefaultDocument;
 import peersim.config.Configuration;
 import peersim.core.CommonState;
 import peersim.core.Node;
@@ -9,13 +13,15 @@ import sun.security.krb5.Config;
 import tests.util.BaseNode;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.sql.*;
 import java.util.*;
 
 /*
  * Initializes subscription relationships between nodes uniformly up to a certain size
- * Designed with this dataset https://wiki.engr.illinois.edu/display/forward/Dataset-UDI-TwitterCrawl-Aug2012 in mind
  */
 public class SubscriptionRelationshipInitializer implements NodeInitializer {
     // http://forward.cs.illinois.edu/datasets/UDI/UDI-TwitterCrawl-Aug2012-Network.zip
@@ -68,29 +74,26 @@ public class SubscriptionRelationshipInitializer implements NodeInitializer {
         String datasetFile = Configuration.getString(configPrefix + ".datasetFile");
 
         HashSet<Integer> subscriptionSpace = new HashSet<Integer>();
+        // mapping of node number to list of topic numbers
         HashMap<Integer, HashSet<Integer>> sample = new HashMap<Integer, HashSet<Integer>>();
         // open twitter dataset
-        // parse into list of nodes and their subsequent subscriptions
-        // Format: [ID1]\t[ID2]
+        System.out.println("SubscriptionRelationshipInitializer: loading dataset (this should take around 10s)...");
+        BsonDocument document = null;
         try {
-            BufferedReader reader = new BufferedReader(new FileReader(datasetFile));
-            String line;
-            while ((line = reader.readLine()) != null) {
-                String[] items = line.split("\t");
-                int id1 = Integer.parseInt(items[0]);
-                int id2 = Integer.parseInt(items[1]);
-                subscriptionSpace.add(id2);
-                if(sample.containsKey(id1)) {
-                    HashSet<Integer> subs = sample.get(id1);
-                    subs.add(id2);
-                } else {
-                    HashSet<Integer> subs = new HashSet<Integer>();
-                    subs.add(id2);
-                    sample.put(id1, subs);
-                }
-            }
-            reader.close();
+            document = BsonDocuments.readFrom(ByteBuffer.wrap(Files.toByteArray(new File(datasetFile))).order(ByteOrder.LITTLE_ENDIAN));
         } catch(Exception e) { e.printStackTrace(); }
+        // ubjson is crap compared to the python library, but it works and will do for now
+        for(Map.Entry<String, Object> entry : document.entrySet()) {
+            int node = Integer.parseInt(entry.getKey());
+            HashSet<Integer> subscriptions = new HashSet<Integer>();
+
+            Collection<Object> subs = (((Map<String, Object>) entry.getValue()).values());
+            for(Object sub : subs) {
+                subscriptions.add((Integer) sub);
+                subscriptionSpace.add((Integer) sub);
+            }
+            sample.put(node, subscriptions);
+        }
 
         // subscriptionSeedSet = select at random 10 subscriptions from sample.subscriptions
         HashSet<Integer> subscriptionSeedSet = new HashSet<Integer>();
@@ -100,6 +103,7 @@ public class SubscriptionRelationshipInitializer implements NodeInitializer {
             // while we haven't gotten 10 unique subs
             subscriptionSeedSet.add(tmpSubscriptionSpace.get(i));
         }
+        System.out.println(subscriptionSeedSet.toString());
 
         // 1. randomly select a small seed set of topics from the sample = seed set
 

@@ -10,6 +10,9 @@
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="PeerSim" level="project" />
+    <orderEntry type="library" name="sqlite-jdbc-3.7.2" level="project" />
+    <orderEntry type="library" name="guava-17.0" level="project" />
+    <orderEntry type="library" name="ebson-0.3" level="project" />
   </component>
 </module>
 
