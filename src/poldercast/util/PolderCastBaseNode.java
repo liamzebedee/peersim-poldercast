@@ -10,6 +10,7 @@ import tests.util.BaseNode;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 
 public class PolderCastBaseNode extends BaseNode  {
     private NodeProfile nodeProfile;
@@ -36,11 +37,11 @@ public class PolderCastBaseNode extends BaseNode  {
         return (RingsProtocol) this.getProtocol(Configuration.lookupPid(RingsProtocol.RINGS));
     }
 
-    public ArrayList<NodeProfile> getUnionOfAllViews() {
-        ArrayList<NodeProfile> union = new ArrayList<NodeProfile>();
-        union.addAll(this.getCyclonProtocol().routingTable);
-        union.addAll(this.getVicinityProtocol().routingTable);
-        union.addAll(this.getRingsProtocol().getLinearView());
+    public HashSet<NodeProfile> getUnionOfAllViews() {
+        HashSet<NodeProfile> union = new HashSet<NodeProfile>();
+        if(this.getCyclonProtocol() != null) union.addAll(this.getCyclonProtocol().getRoutingTableCopy());
+        if(this.getVicinityProtocol() != null) union.addAll(this.getVicinityProtocol().getRoutingTableCopy());
+        //if(this.getRingsProtocol() != null) union.addAll(this.getRingsProtocol().getLinearView());
         return union;
     }
 

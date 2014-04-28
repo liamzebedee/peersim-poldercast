@@ -10,11 +10,11 @@ import java.util.Set;
 public class VicinityComparator implements Comparator<NodeProfile> {
     private NodeProfile perspectiveNode;
     // Priority is defined by the number of nodes one needs to fill their Rings view for that topic
-    public final int MAX_TOPIC_PRIORITY;
+    public final byte MAX_TOPIC_PRIORITY;
 
-    public VicinityComparator(NodeProfile perspectiveNode) {
+    public VicinityComparator(NodeProfile perspectiveNode, byte maxTopicPriority) {
         this.perspectiveNode = perspectiveNode;
-        this.MAX_TOPIC_PRIORITY = perspectiveNode.getNode().getRingsProtocol().MAX_VIEW_SIZE;
+        this.MAX_TOPIC_PRIORITY = maxTopicPriority;
     }
 
     @Override

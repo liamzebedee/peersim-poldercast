@@ -40,22 +40,9 @@ protocol.cyclon poldercast.protocols.CyclonProtocol
     maxViewSize MAX_VIEW_SIZE
     maxGossipLength MAX_GOSSIP_LENGTH
 }
-protocol.vicinity poldercast.protocols.VicinityProtocol
-{
-    transport transportUniformRandom
-    step  CYCLE
-    maxViewSize MAX_VIEW_SIZE
-    maxGossipLength MAX_GOSSIP_LENGTH
-}
-protocol.rings poldercast.protocols.RingsProtocol
-{
-    transport transportUniformRandom
-    step  CYCLE
-    maxViewSize MAX_VIEW_SIZE
-    maxGossipLength MAX_GOSSIP_LENGTH
-    fanout 2
-}
-include.protocol transportUniformRandom cyclon vicinity rings
+
+
+include.protocol transportUniformRandom cyclon
 
 ########################################################### INITIALIZERS SECTION
 # this initializer assigns each node an ID
@@ -65,34 +52,29 @@ init.poldercastIdAssigner poldercast.initializers.PolderCastIdAssigner
 init.bootstrapper WireKOut
 {
     protocol cyclon
-    k NUM_BOOTSTRAP_NODES
+    k 3
     undir true
 }
 
 init.cycleScheduler CDScheduler
 {
     # list of cycle protocols separated by whitespace
-    protocol cyclon vicinity rings
-}
-
-init.subscriptionRelationshipInitializer tests.initializers.SubscriptionRelationshipInitializer
-{
-    numberOfNodes 10000
-    numberOfTopics NUM_TOPICS
-    datasetFile /media/liamzebedee/Windows7_OS/Users/liamzebedee/Dropbox/0 Code/peersim-poldercast/misc/network.bson
+    protocol cyclon
 }
 
 # the ordered sequence of initializers that must be run
-include.init bootstrapper cycleScheduler
+include.init poldercastIdAssigner bootstrapper cycleScheduler
 
 ########################################################### CONTROLS SECTION
-control.topicSubscription tests.controls.TopicSubscription
+
+control.viewStats poldercast.controls.ViewStats
 {
-    step CYCLE
+    step  CYCLE
+    protocol cyclon
 }
-control.loadDistribution tests.controls.LoadDistribution
+control.netStats poldercast.controls.NetStats
 {
-    step CYCLE
-    protocol rings
+    step  CYCLE
+    protocol cyclon
 }
-include.control loadDistribution
+include.control viewStats netStats

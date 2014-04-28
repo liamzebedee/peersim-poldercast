@@ -14,15 +14,18 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
     public int bitsReceived = 0;
     public int messagesSent = 0;
     public int messagesReceived = 0;
-    public ArrayList<NodeProfile> routingTable = new ArrayList<NodeProfile>(MAX_VIEW_SIZE * 2);
+    public LinkedHashSet<NodeProfile> routingTable;
 
     public final int protocolID;
-    public static final int MAX_VIEW_SIZE = 20;
-    public static final int MAX_GOSSIP_LENGTH = 10;
+    public final byte MAX_VIEW_SIZE;
+    public final byte MAX_GOSSIP_LENGTH;
     public static final String VICINITY = "vicinity";
 
     public VicinityProtocol(String configPrefix) {
         this.protocolID = Configuration.lookupPid(VICINITY);
+        this.MAX_GOSSIP_LENGTH = (byte) Configuration.getInt(configPrefix + ".maxGossipLength");
+        this.MAX_VIEW_SIZE = (byte) Configuration.getInt(configPrefix + ".maxViewSize");
+        this.routingTable = new LinkedHashSet<NodeProfile>(MAX_VIEW_SIZE * 2);
     }
 
     @Override
@@ -51,21 +54,24 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
         // Select oldest node
         // If we haven't got any nodes in the view yet, bootstrap with the nodes from the Cyclon view
         if(protocol.routingTable.isEmpty()) protocol.bootstrapFromOtherModules(thisNode);
-        NodeProfile oldestNode = protocol.routingTable.get(0);
+        if(protocol.routingTable.isEmpty()) throw new RuntimeException("Vicinity view has no entries after bootstrapping");
+        // Select oldest node
         nodeProfileIterator = protocol.routingTable.iterator();
+        NodeProfile oldestNode = nodeProfileIterator.next();
         while (nodeProfileIterator.hasNext()) {
             NodeProfile profile = nodeProfileIterator.next();
-            if (profile.getAge() > oldestNode.getAge()) oldestNode = profile;
+            if (profile.getAge() > oldestNode.getAge())
+                oldestNode = profile;
         }
 
-        ArrayList<NodeProfile> tmpProfilesToSend = thisNode.getUnionOfAllViews();
-        // remove the target and replace with our node
-        tmpProfilesToSend.set(tmpProfilesToSend.indexOf(oldestNode), thisNode.getNodeProfile());
-        ArrayList<NodeProfile> profilesToSend = this.selectClosestNodesForNode(thisNode, oldestNode,
-                tmpProfilesToSend, VicinityProtocol.MAX_GOSSIP_LENGTH);
-        protocol.routingTable.remove(oldestNode); // proactive removal to combat churn
+        HashSet<NodeProfile> tmpProfilesToSend = thisNode.getUnionOfAllViews();
+        // remove the target and also add our node into the mix
+        tmpProfilesToSend.remove(oldestNode); tmpProfilesToSend.add(thisNode.getNodeProfile());
+        HashSet<NodeProfile> profilesToSend = this.selectClosestNodesForNode(thisNode, oldestNode,
+                tmpProfilesToSend, protocol.MAX_GOSSIP_LENGTH);
 
         GossipMsg msg = new GossipMsg(profilesToSend, GossipMsg.Types.GOSSIP_QUERY, thisNode);
+        protocol.routingTable.remove(oldestNode); // proactive removal to combat churn
         protocol.bitsSent += msg.getSizeInBits();
         protocol.messagesSent++;
         Util.sendMsg(thisNode, oldestNode.getNode(), msg, protocolID);
@@ -88,9 +94,9 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
             protocol.communicationReceivedFromNode(receivedGossipMsg.getSender().getNodeProfile());
 
 
-            ArrayList<NodeProfile> profilesToSend = this.selectClosestNodesForNode(thisNode,
+            HashSet<NodeProfile> profilesToSend = this.selectClosestNodesForNode(thisNode,
                     receivedGossipMsg.getSender().getNodeProfile(),
-                    thisNode.getUnionOfAllViews(), VicinityProtocol.MAX_GOSSIP_LENGTH);
+                    thisNode.getUnionOfAllViews(), protocol.MAX_GOSSIP_LENGTH);
 
             GossipMsg msg = new GossipMsg(profilesToSend, GossipMsg.Types.GOSSIP_RESPONSE, thisNode);
             protocol.bitsSent += msg.getSizeInBits();
@@ -107,17 +113,16 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
         }
     }
 
-    public synchronized ArrayList<NodeProfile> selectClosestNodesForNode(PolderCastBaseNode thisNode, NodeProfile node,
-                                                                         ArrayList<NodeProfile> nodeSelection, int maxNodes) {
-        ArrayList<NodeProfile> closestNodes;
-        Collections.sort(nodeSelection, new VicinityComparator(node));
+    public synchronized LinkedHashSet<NodeProfile> selectClosestNodesForNode(PolderCastBaseNode thisNode, NodeProfile node,
+                                                                         HashSet<NodeProfile> nodeSelection, byte maxNodes) {
+        ArrayList<NodeProfile> closestNodes = new ArrayList<NodeProfile>();
+        closestNodes.addAll(nodeSelection);
+        Collections.sort(closestNodes, new VicinityComparator(node, this.MAX_VIEW_SIZE));
         // Get up to 20 of the closest nodes
-        closestNodes = new ArrayList<NodeProfile>(nodeSelection.subList(0,
-                Math.min(nodeSelection.size(), maxNodes)));
-        return closestNodes;
+        return new LinkedHashSet<NodeProfile>(closestNodes.subList(0, Math.min(nodeSelection.size(), maxNodes)));
     }
 
-    public synchronized void mergeNodes(PolderCastBaseNode thisNode, ArrayList<NodeProfile> profiles) {
+    public synchronized void mergeNodes(PolderCastBaseNode thisNode, HashSet<NodeProfile> profiles) {
         Iterator<NodeProfile> nodeProfileIterator = profiles.iterator();
         while (nodeProfileIterator.hasNext()) {
             NodeProfile profile = nodeProfileIterator.next();
@@ -134,21 +139,13 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
         }
 
         // Consider the union of all views with these nodes
-        ArrayList<NodeProfile> candidatesToAdd = thisNode.getUnionOfAllViews();
-        // TODO union may contain duplicates
-        candidatesToAdd = this.selectClosestNodesForNode(thisNode, thisNode.getNodeProfile(),
-                candidatesToAdd, VicinityProtocol.MAX_VIEW_SIZE);
-        // Remove duplicates
-        Set setItems = new LinkedHashSet(candidatesToAdd);
-        candidatesToAdd.clear();
-        candidatesToAdd.addAll(setItems);
-
-        this.routingTable = candidatesToAdd;
+        this.routingTable = this.selectClosestNodesForNode(thisNode, thisNode.getNodeProfile(),
+                thisNode.getUnionOfAllViews(), this.MAX_VIEW_SIZE);
     }
 
     private void bootstrapFromOtherModules(PolderCastBaseNode thisNode) {
         // NOTE: although it wasn't explicitly defined in the design paper, intuition tells me this is how it works
-        this.mergeNodes(thisNode, new ArrayList<NodeProfile>());
+        this.mergeNodes(thisNode, new HashSet<NodeProfile>());
     }
 
 
@@ -159,9 +156,8 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
 
 
 
-    public void communicationReceivedFromNode(NodeProfile node) {
-        ArrayList<NodeProfile> view = this.routingTable;
-        if(view.contains(node)) node.resetAge();
+    public synchronized void communicationReceivedFromNode(NodeProfile node) {
+        if(this.routingTable.contains(node)) node.resetAge();
     }
 
     /*
@@ -199,15 +195,15 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
 
     // Returns the neighbor with the given index.
     public Node getNeighbor(int i) {
-        return this.routingTable.get(i).getNode();
+        throw new RuntimeException("This doesn't work with Vicinity");
     }
 
     // A possibility for optimization.
     public void pack() {}
 
-    public ArrayList<NodeProfile> getRoutingTableCopy() {
-        ArrayList<NodeProfile> routingTableCopy = new ArrayList<NodeProfile>(this.routingTable);
-        Collections.copy(routingTableCopy, this.routingTable);
+    public LinkedHashSet<NodeProfile> getRoutingTableCopy() {
+        LinkedHashSet<NodeProfile> routingTableCopy = new LinkedHashSet<NodeProfile>();
+        routingTableCopy.addAll(this.routingTable);
         return routingTableCopy;
     }
 }

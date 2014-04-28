@@ -11,8 +11,8 @@ import poldercast.util.*;
 import java.util.*;
 
 class RingsTopicView {
-    public ArrayList<NodeProfile> nodesWithLowerID = new ArrayList<NodeProfile>();
-    public ArrayList<NodeProfile> nodesWithHigherID = new ArrayList<NodeProfile>();
+    public LinkedHashSet<NodeProfile> nodesWithLowerID = new LinkedHashSet<NodeProfile>();
+    public LinkedHashSet<NodeProfile> nodesWithHigherID = new LinkedHashSet<NodeProfile>();
 
     public RingsTopicView() {}
 
@@ -41,7 +41,7 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
     public int messagesSent = 0;
     public int messagesReceived = 0;
     public Map<ID, RingsTopicView> routingTable = new HashMap<ID, RingsTopicView>();
-    public ArrayList<Integer> receivedEvents = new ArrayList<Integer>();
+    public HashSet<Integer> receivedEvents = new HashSet<Integer>();
 
     public final int protocolID;
     public final byte MAX_GOSSIP_LENGTH;
@@ -61,7 +61,7 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
         RingsProtocol clone = null;
         try {
             clone = (RingsProtocol) super.clone();
-            //clone.routingTable = this.getRoutingTableCopy();
+            clone.routingTable = this.getRoutingTableCopy();
         } catch(Exception e) {
             e.printStackTrace();
         }
@@ -73,7 +73,7 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
         RingsProtocol protocol = (RingsProtocol) thisNode.getProtocol(protocolID);
 
         if(thisNode.getNodeProfile().getSubscriptions().size() == 0) return;
-        ArrayList<NodeProfile> profiles = protocol.getLinearView();
+        HashSet<NodeProfile> profiles = protocol.getLinearView();
         if(profiles.isEmpty()) protocol.bootstrapFromOtherModules(thisNode);
         // Increment age of all nodes
         Iterator<NodeProfile> nodeProfileIterator = profiles.iterator();
@@ -82,14 +82,14 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
             profile.incrementAge();
         }
         // Select oldest node
-        NodeProfile oldestNode = profiles.get(0);
         nodeProfileIterator = profiles.iterator();
+        NodeProfile oldestNode = nodeProfileIterator.next();
         while (nodeProfileIterator.hasNext()) {
             NodeProfile profile = nodeProfileIterator.next();
             if (profile.getAge() > oldestNode.getAge()) oldestNode = profile;
         }
 
-        ArrayList<NodeProfile> nodesToSend = protocol.selectNodesToSend(thisNode, oldestNode);
+        HashSet<NodeProfile> nodesToSend = protocol.selectNodesToSend(thisNode, oldestNode);
         protocol.removeNode(oldestNode); // proactive removal to combat churn
         GossipMsg msg = new GossipMsg(nodesToSend, GossipMsg.Types.GOSSIP_QUERY, thisNode);
         protocol.bitsSent += msg.getSizeInBits();
@@ -113,7 +113,7 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
             if (receivedGossipMsg.getType() == GossipMsg.Types.GOSSIP_QUERY) {
                 protocol.mergeNodes(thisNode, receivedGossipMsg.getNodeProfiles());
 
-                ArrayList<NodeProfile> nodesToSend = protocol.selectNodesToSend(thisNode, receivedGossipMsg.getSender().getNodeProfile());
+                HashSet<NodeProfile> nodesToSend = protocol.selectNodesToSend(thisNode, receivedGossipMsg.getSender().getNodeProfile());
                 GossipMsg msg = new GossipMsg(nodesToSend, GossipMsg.Types.GOSSIP_RESPONSE, thisNode);
                 protocol.bitsSent += msg.getSizeInBits();
                 protocol.messagesSent++;
@@ -135,7 +135,7 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
 
             RingsTopicView ringsTopicView = protocol.routingTable.get(receivedPublishMsg.getTopic());
             PublishMsg publishMsgToSend = new PublishMsg(receivedPublishMsg.getEvent(), receivedPublishMsg.getTopic(), thisNode);
-            ArrayList<NodeProfile> nodesToPropagateEventTo = new ArrayList<NodeProfile>();
+            HashSet<NodeProfile> nodesToPropagateEventTo = new HashSet<NodeProfile>();
             if(ringsTopicView.contains(receivedPublishMsg.getSender().getNodeProfile())) {
                 // If the event has been received through the node’s successor (or predecessor),
                 // it is propagated down the line to its predecessor (or successor) and
@@ -148,10 +148,10 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
                      * TODO we attempt to send to the next best
                      */
                     // TODO solution is to always check Node.isUp(), this works with churn model
-                    nodesToPropagateEventTo.add(ringsTopicView.nodesWithHigherID.get(0));
+                    nodesToPropagateEventTo.add(ringsTopicView.nodesWithHigherID.iterator().next());
                 } else {
                     // Received through predecessor, propagate to successor
-                    nodesToPropagateEventTo.add(ringsTopicView.nodesWithLowerID.get(0));
+                    nodesToPropagateEventTo.add(ringsTopicView.nodesWithLowerID.iterator().next());
                 }
 
                 nodesToPropagateEventTo.addAll(protocol.getArbitrarySubscribersOfTopic(thisNode, receivedPublishMsg.getTopic(),
@@ -162,8 +162,8 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
                 // If the event was received through some third node, or if it originated at the node
                 // in question, it is propagated to both the successor and the predecessor,
                 // as well as to (F - 2) arbitrary subscribers of the topic
-                nodesToPropagateEventTo.add(ringsTopicView.nodesWithHigherID.get(0));
-                nodesToPropagateEventTo.add(ringsTopicView.nodesWithLowerID.get(0));
+                nodesToPropagateEventTo.add(ringsTopicView.nodesWithHigherID.iterator().next());
+                nodesToPropagateEventTo.add(ringsTopicView.nodesWithLowerID.iterator().next());
                 nodesToPropagateEventTo.addAll(protocol.getArbitrarySubscribersOfTopic(thisNode, receivedPublishMsg.getTopic(),
                         protocol.FANOUT - 2));
                 protocol.propagateEvent(thisNode, nodesToPropagateEventTo, publishMsgToSend);
@@ -174,7 +174,7 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
         }
     }
 
-    private void propagateEvent(PolderCastBaseNode thisNode, ArrayList<NodeProfile> nodesToPropagateEventTo, PublishMsg publishMsgToSend) {
+    private void propagateEvent(PolderCastBaseNode thisNode, HashSet<NodeProfile> nodesToPropagateEventTo, PublishMsg publishMsgToSend) {
         for(NodeProfile nodeToPropagateEventTo : nodesToPropagateEventTo) {
             this.bitsSent += publishMsgToSend.getSizeInBits();
             this.messagesSent++;
@@ -184,14 +184,15 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
         }
     }
 
-    private ArrayList<NodeProfile> getArbitrarySubscribersOfTopic(PolderCastBaseNode thisNode, ID topic, int n) {
-        ArrayList<NodeProfile> arbitrarySubscribers = new ArrayList<NodeProfile>();
+    private HashSet<NodeProfile> getArbitrarySubscribersOfTopic(PolderCastBaseNode thisNode, ID topic, int n) {
+
         ArrayList<NodeProfile> candidates = new ArrayList<NodeProfile>();
         for(NodeProfile nodeCandidate : thisNode.getVicinityProtocol().getRoutingTableCopy()) {
             if(nodeCandidate.getSubscriptions().keySet().contains(topic)) candidates.add(nodeCandidate);
         }
         Collections.shuffle(candidates, CommonState.r);
         Iterator<NodeProfile> iter = candidates.iterator();
+        HashSet<NodeProfile> arbitrarySubscribers = new HashSet<NodeProfile>();
         int i = 0;
         while(iter.hasNext() && (i < n)) {
             arbitrarySubscribers.add(iter.next());
@@ -200,17 +201,14 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
         return arbitrarySubscribers;
     }
 
-    public synchronized ArrayList<NodeProfile> selectNodesToSend(PolderCastBaseNode thisNode, NodeProfile gossipNode) {
-        ArrayList<ID> subscriptionsInCommon = new ArrayList<ID>(thisNode.getNodeProfile().getSubscriptions().keySet());
+    public synchronized HashSet<NodeProfile> selectNodesToSend(PolderCastBaseNode thisNode, NodeProfile gossipNode) {
+        HashSet<ID> subscriptionsInCommon = new HashSet<ID>(thisNode.getNodeProfile().getSubscriptions().keySet());
         subscriptionsInCommon.retainAll(gossipNode.getSubscriptions().keySet());
 
-        Set<NodeProfile> nodesToSend = new LinkedHashSet<NodeProfile>();
-        ArrayList<NodeProfile> candidates = new ArrayList<NodeProfile>(thisNode.getUnionOfAllViews());
+        LinkedHashSet<NodeProfile> nodesToSend = new LinkedHashSet<NodeProfile>();
+        HashSet<NodeProfile> candidates = thisNode.getUnionOfAllViews();
         candidates.add(thisNode.getNodeProfile()); // since we are selecting nodes to send, we add our own
-        // Remove duplicates
-        Set setItems = new LinkedHashSet(candidates);
-        candidates.clear();
-        candidates.addAll(setItems);
+
         for (ID subscription : subscriptionsInCommon) {
             ArrayList<NodeProfile> candidatesThatShareInterest = new ArrayList<NodeProfile>();
             for (NodeProfile profile : candidates) {
@@ -257,23 +255,15 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
             listOfNodesToSend = new ArrayList<NodeProfile>(listOfNodesToSend.subList(0, this.MAX_GOSSIP_LENGTH));
         }
 
-        return listOfNodesToSend;
+        return new HashSet(listOfNodesToSend);
     }
 
-    public synchronized void mergeNodes(PolderCastBaseNode thisNode, ArrayList<NodeProfile> profiles) {
-        Iterator<NodeProfile> nodeProfileIterator = profiles.iterator();
-        while (nodeProfileIterator.hasNext()) {
-            NodeProfile profile = nodeProfileIterator.next();
-            // Remove our profile if any
-            if (profile.getID().equals(thisNode.getNodeProfile().getID())) {
-                nodeProfileIterator.remove();
-            }
-        }
-
-        ArrayList<NodeProfile> candidates = profiles;
+    public synchronized void mergeNodes(PolderCastBaseNode thisNode, HashSet<NodeProfile> profiles) {
+        profiles.remove(thisNode.getNodeProfile());
+        HashSet<NodeProfile> candidates = profiles;
         candidates.addAll(thisNode.getUnionOfAllViews());
         // Remove duplicates
-        Set setItems = new LinkedHashSet(candidates);
+        LinkedHashSet setItems = new LinkedHashSet(candidates);
         candidates.clear();
         candidates.addAll(setItems);
 
@@ -313,23 +303,23 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
                 else justHigher.add(toAdd);
             }
 
-            this.routingTable.get(subscription).nodesWithLowerID = justLower;
-            this.routingTable.get(subscription).nodesWithHigherID = justHigher;
+            this.routingTable.get(subscription).nodesWithLowerID = new LinkedHashSet(justLower);
+            this.routingTable.get(subscription).nodesWithHigherID = new LinkedHashSet(justHigher);
         }
 
     }
 
     private void bootstrapFromOtherModules(PolderCastBaseNode thisNode) {
-        this.mergeNodes(thisNode, new ArrayList<NodeProfile>());
+        this.mergeNodes(thisNode, new HashSet<NodeProfile>());
     }
 
     private void communicationReceivedFromNode(NodeProfile node) {
-        ArrayList<NodeProfile> view = this.getLinearView();
+        HashSet<NodeProfile> view = this.getLinearView();
         if(view.contains(node)) node.resetAge();
     }
 
-    public ArrayList<NodeProfile> getLinearView() {
-        ArrayList<NodeProfile> profiles = new ArrayList<NodeProfile>();
+    public HashSet<NodeProfile> getLinearView() {
+        HashSet<NodeProfile> profiles = new HashSet<NodeProfile>();
         for(RingsTopicView ringsTopicView : this.routingTable.values()) {
             profiles.addAll(ringsTopicView.nodesWithHigherID);
             profiles.addAll(ringsTopicView.nodesWithLowerID);
@@ -346,9 +336,9 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
     public void publishEvent(PolderCastBaseNode thisNode, ID topic, byte[] event) {
         RingsTopicView ringsTopicView = this.routingTable.get(topic);
         PublishMsg publishMsgToSend = new PublishMsg(event, topic, thisNode);
-        ArrayList<NodeProfile> nodesToPropagateEventTo = new ArrayList<NodeProfile>();
-        nodesToPropagateEventTo.add(ringsTopicView.nodesWithHigherID.get(0));
-        nodesToPropagateEventTo.add(ringsTopicView.nodesWithLowerID.get(0));
+        HashSet<NodeProfile> nodesToPropagateEventTo = new HashSet<NodeProfile>();
+        nodesToPropagateEventTo.add(ringsTopicView.nodesWithHigherID.iterator().next());
+        nodesToPropagateEventTo.add(ringsTopicView.nodesWithLowerID.iterator().next());
         nodesToPropagateEventTo.addAll(this.getArbitrarySubscribersOfTopic(thisNode, topic,
                 this.FANOUT - 2));
         this.propagateEvent(thisNode, nodesToPropagateEventTo, publishMsgToSend);
@@ -423,6 +413,7 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
 
     public Map<ID, RingsTopicView> getRoutingTableCopy() {
         Map<ID, RingsTopicView> routingTableCopy = new HashMap<ID, RingsTopicView>();
+
         routingTableCopy.putAll(this.routingTable);
         return routingTableCopy;
     }

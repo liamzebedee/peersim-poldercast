@@ -7,6 +7,7 @@ import com.google.common.io.Files;
 import com.sun.org.apache.xerces.internal.impl.xs.opti.DefaultDocument;
 import peersim.config.Configuration;
 import peersim.core.CommonState;
+import peersim.core.Control;
 import peersim.core.Node;
 import peersim.dynamics.NodeInitializer;
 import poldercast.util.ID;
@@ -24,7 +25,7 @@ import java.util.*;
 /*
  * Initializes subscription relationships between nodes uniformly up to a certain size
  */
-public class SubscriptionRelationshipInitializer implements NodeInitializer {
+public class SubscriptionRelationshipInitializer implements NodeInitializer, Control {
     // http://forward.cs.illinois.edu/datasets/UDI/UDI-TwitterCrawl-Aug2012-Network.zip
 
     /*
@@ -147,5 +148,11 @@ public class SubscriptionRelationshipInitializer implements NodeInitializer {
         // TODO convert subscription to an ID appropriate for the system
         //for(int sub : subscriptions) baseNode.subscribe(sub);
         initializerIndex = (initializerIndex + 1) % this.NUMBER_OF_NODES;
+    }
+
+    @Override
+    public boolean execute() {
+        System.out.println("I could initialise here");
+        return false;
     }
 }

@@ -2,14 +2,15 @@ package poldercast.util;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 
 public class GossipMsg extends NetworkMsg {
-    private final ArrayList<NodeProfile> profiles;
+    private final HashSet<NodeProfile> profiles;
     private final Types type;
 
     public enum Types { GOSSIP_QUERY, GOSSIP_RESPONSE }
 
-    public GossipMsg(ArrayList<NodeProfile> profiles, Types type, PolderCastBaseNode sender) {
+    public GossipMsg(HashSet<NodeProfile> profiles, Types type, PolderCastBaseNode sender) {
         super(sender);
         this.profiles = profiles;
         this.type = type;
@@ -23,9 +24,9 @@ public class GossipMsg extends NetworkMsg {
         return size;
     }
 
-    public ArrayList<NodeProfile> getNodeProfiles() {
-        ArrayList<NodeProfile> nodeProfiles = new ArrayList<NodeProfile>(this.profiles);
-        Collections.copy(nodeProfiles, this.profiles);
+    public HashSet<NodeProfile> getNodeProfiles() {
+        HashSet<NodeProfile> nodeProfiles = new HashSet<NodeProfile>();
+        nodeProfiles.addAll(this.profiles);
         return nodeProfiles;
     }
 

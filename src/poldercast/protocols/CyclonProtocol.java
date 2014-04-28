@@ -10,24 +10,25 @@ import poldercast.util.NodeProfile;
 import poldercast.util.PolderCastBaseNode;
 import poldercast.util.Util;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
+import java.util.*;
 
 public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
     public int bitsSent = 0;
     public int bitsReceived = 0;
     public int messagesSent = 0;
     public int messagesReceived = 0;
-    public ArrayList<NodeProfile> routingTable = new ArrayList<NodeProfile>(MAX_VIEW_SIZE * 2);
+    public LinkedHashSet<NodeProfile> routingTable;
 
     public final int protocolID;
-    public static final int MAX_VIEW_SIZE = 20;
-    public static final int MAX_GOSSIP_LENGTH = 10;
+    public final byte MAX_VIEW_SIZE;
+    public final byte MAX_GOSSIP_LENGTH;
     public static final String CYCLON = "cyclon";
 
     public CyclonProtocol(String configPrefix) {
         this.protocolID = Configuration.lookupPid(CYCLON);
+        this.MAX_GOSSIP_LENGTH = (byte) Configuration.getInt(configPrefix + ".maxGossipLength");
+        this.MAX_VIEW_SIZE = (byte) Configuration.getInt(configPrefix + ".maxViewSize");
+        this.routingTable = new LinkedHashSet<NodeProfile>(MAX_VIEW_SIZE);
     }
 
     @Override
@@ -44,28 +45,33 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
 
     public synchronized void nextCycle(Node node, int protocolID) {
         PolderCastBaseNode thisNode = (PolderCastBaseNode) node;
-        CyclonProtocol protocol = (CyclonProtocol) thisNode.getProtocol(protocolID);
+        CyclonProtocol protocol = thisNode.getCyclonProtocol();
+
+        if(this.routingTable.isEmpty()) throw new RuntimeException("Node should be bootstrapped before first Cyclon cycle");
 
         // Increment the age of all nodes
-        Iterator<NodeProfile> nodeProfileIterator = protocol.routingTable.iterator();
-        while (nodeProfileIterator.hasNext()) {
-            NodeProfile profile = nodeProfileIterator.next();
+        for(NodeProfile profile : protocol.routingTable) {
             profile.incrementAge();
         }
 
         // Select oldest node
-        NodeProfile oldestNode = protocol.routingTable.get(0);
-        nodeProfileIterator = protocol.routingTable.iterator();
+        Iterator<NodeProfile> nodeProfileIterator = protocol.routingTable.iterator();
+        NodeProfile oldestNode = nodeProfileIterator.next();
         while (nodeProfileIterator.hasNext()) {
             NodeProfile profile = nodeProfileIterator.next();
-            if (profile.getAge() > oldestNode.getAge()) oldestNode = profile;
+            if (profile.getAge() > oldestNode.getAge())
+                oldestNode = profile;
         }
+
         // Gossip
-        ArrayList<NodeProfile> nodesToSend = protocol.getRoutingTableCopy();
+        HashSet<NodeProfile> nodesToSend = protocol.getRoutingTableCopy();
         // remove the target and replace with our node
-        nodesToSend.set(nodesToSend.indexOf(oldestNode), thisNode.getNodeProfile());
-        nodesToSend = new ArrayList<NodeProfile>(
-                nodesToSend.subList(0, Math.min(nodesToSend.size(), CyclonProtocol.MAX_GOSSIP_LENGTH)));
+        nodesToSend.remove(oldestNode); nodesToSend.add(thisNode.getNodeProfile());
+        nodeProfileIterator = nodesToSend.iterator();
+        while(nodeProfileIterator.hasNext() && nodesToSend.size() > Math.min(nodesToSend.size(), protocol.MAX_GOSSIP_LENGTH)) {
+            nodeProfileIterator.next();
+            nodeProfileIterator.remove();
+        }
         protocol.routingTable.remove(oldestNode); // proactive removal to combat churn
         GossipMsg msg = new GossipMsg(nodesToSend, GossipMsg.Types.GOSSIP_QUERY, thisNode);
         protocol.bitsSent += msg.getSizeInBits();
@@ -91,13 +97,15 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
             protocol.communicationReceivedFromNode(receivedGossipMsg.getSender().getNodeProfile());
 
             // Send a reply
-            ArrayList<NodeProfile> nodesToSend = protocol.getRoutingTableCopy();
+            HashSet<NodeProfile> nodesToSend = protocol.getRoutingTableCopy();
             // remove the target and replace with our node
-            if(nodesToSend.contains(receivedGossipMsg.getSender().getNodeProfile())) {
-                nodesToSend.set(nodesToSend.indexOf(receivedGossipMsg.getSender().getNodeProfile()), thisNode.getNodeProfile());
+            nodesToSend.remove(receivedGossipMsg.getSender().getNodeProfile());
+            nodesToSend.add(thisNode.getNodeProfile());
+            Iterator<NodeProfile> nodeProfileIterator = nodesToSend.iterator();
+            while(nodeProfileIterator.hasNext() && nodesToSend.size() > Math.min(nodesToSend.size(), protocol.MAX_GOSSIP_LENGTH)) {
+                nodeProfileIterator.next();
+                nodeProfileIterator.remove();
             }
-            nodesToSend = new ArrayList<NodeProfile>(
-                    nodesToSend.subList(0, Math.min(nodesToSend.size(), CyclonProtocol.MAX_GOSSIP_LENGTH)));
             GossipMsg replyGossipMsg = new GossipMsg(nodesToSend, GossipMsg.Types.GOSSIP_RESPONSE, thisNode);
             protocol.bitsSent += replyGossipMsg.getSizeInBits();
             protocol.messagesSent++;
@@ -112,7 +120,7 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
         }
     }
 
-    public synchronized void mergeNodes(PolderCastBaseNode thisNode, ArrayList<NodeProfile> profiles) {
+    public synchronized void mergeNodes(PolderCastBaseNode thisNode, HashSet<NodeProfile> profiles) {
         Iterator<NodeProfile> nodeProfileIterator = profiles.iterator();
         while (nodeProfileIterator.hasNext()) {
             NodeProfile profile = nodeProfileIterator.next();
@@ -132,16 +140,13 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
         this.routingTable.addAll(profiles);
         while (this.routingTable.size() > MAX_VIEW_SIZE) {
             // Remove from the front of the list, as we favour new nodes over old ones
-            this.routingTable.remove(0);
+            Util.removeFirstInHashSet(this.routingTable);
         }
     }
 
-    public void communicationReceivedFromNode(NodeProfile node) {
+    public synchronized void communicationReceivedFromNode(NodeProfile node) {
         // If we have the node in the routing table, zero its age
-        int i = this.routingTable.indexOf(node);
-        if(i != -1) {
-            this.routingTable.get(i).resetAge();
-        }
+        if(this.routingTable.contains(node)) node.resetAge();
     }
 
     /*
@@ -159,7 +164,7 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
     // Add a neighbor to the current set of neighbors.
     // NOTE this method should only be called at node initialization and by a bootstrapping class
     // Cyclon uses gossipping to find and add new neighbours
-    public boolean addNeighbor(Node neighbour) {
+    public synchronized boolean addNeighbor(Node neighbour) {
         NodeProfile profile = ((PolderCastBaseNode) neighbour).getNodeProfile();
 
         if(this.routingTable.size() == 20) {
@@ -187,15 +192,15 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
 
     // Returns the neighbor with the given index.
     public Node getNeighbor(int i) {
-        return this.routingTable.get(i).getNode();
+        throw new RuntimeException("Can't do this with Cyclon");
     }
 
     // A possibility for optimization.
     public void pack() {}
 
-    public ArrayList<NodeProfile> getRoutingTableCopy() {
-        ArrayList<NodeProfile> routingTableCopy = new ArrayList<NodeProfile>(this.routingTable);
-        Collections.copy(routingTableCopy, this.routingTable);
+    public synchronized LinkedHashSet<NodeProfile> getRoutingTableCopy() {
+        LinkedHashSet<NodeProfile> routingTableCopy = new LinkedHashSet<NodeProfile>();
+        routingTableCopy.addAll(this.routingTable);
         return routingTableCopy;
     }
 }
