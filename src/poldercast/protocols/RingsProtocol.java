@@ -75,6 +75,8 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
         if(thisNode.getNodeProfile().getSubscriptions().size() == 0) return;
         HashSet<NodeProfile> profiles = protocol.getLinearView();
         if(profiles.isEmpty()) protocol.bootstrapFromOtherModules(thisNode);
+        if(profiles.isEmpty()) return;
+
         // Increment age of all nodes
         Iterator<NodeProfile> nodeProfileIterator = profiles.iterator();
         while (nodeProfileIterator.hasNext()) {
@@ -86,7 +88,8 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
         NodeProfile oldestNode = nodeProfileIterator.next();
         while (nodeProfileIterator.hasNext()) {
             NodeProfile profile = nodeProfileIterator.next();
-            if (profile.getAge() > oldestNode.getAge()) oldestNode = profile;
+            if (profile.getAge() > oldestNode.getAge())
+                oldestNode = profile;
         }
 
         HashSet<NodeProfile> nodesToSend = protocol.selectNodesToSend(thisNode, oldestNode);
@@ -259,18 +262,16 @@ public class RingsProtocol implements CDProtocol, EDProtocol, Linkable {
     }
 
     public synchronized void mergeNodes(PolderCastBaseNode thisNode, HashSet<NodeProfile> profiles) {
-        profiles.remove(thisNode.getNodeProfile());
-        HashSet<NodeProfile> candidates = profiles;
+        HashSet<NodeProfile> candidates = new HashSet<NodeProfile>();
+        candidates.addAll(profiles);
         candidates.addAll(thisNode.getUnionOfAllViews());
-        // Remove duplicates
-        LinkedHashSet setItems = new LinkedHashSet(candidates);
-        candidates.clear();
-        candidates.addAll(setItems);
+        candidates.remove(thisNode.getNodeProfile());
 
         for(ID subscription : thisNode.getNodeProfile().getSubscriptions().keySet()) {
             ArrayList<NodeProfile> candidatesThatShareInterest = new ArrayList<NodeProfile>();
             for (NodeProfile profile : candidates) {
                 if (profile.getSubscriptions().containsKey(subscription)) {
+                    System.out.println("common sub");
                     candidatesThatShareInterest.add(profile);
                 }
             }

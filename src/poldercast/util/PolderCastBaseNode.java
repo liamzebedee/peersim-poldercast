@@ -39,9 +39,9 @@ public class PolderCastBaseNode extends BaseNode  {
 
     public HashSet<NodeProfile> getUnionOfAllViews() {
         HashSet<NodeProfile> union = new HashSet<NodeProfile>();
-        if(this.getCyclonProtocol() != null) union.addAll(this.getCyclonProtocol().getRoutingTableCopy());
-        if(this.getVicinityProtocol() != null) union.addAll(this.getVicinityProtocol().getRoutingTableCopy());
-        //if(this.getRingsProtocol() != null) union.addAll(this.getRingsProtocol().getLinearView());
+        union.addAll(this.getCyclonProtocol().getRoutingTableCopy());
+        union.addAll(this.getVicinityProtocol().getRoutingTableCopy());
+        union.addAll(this.getRingsProtocol().getLinearView());
         return union;
     }
 

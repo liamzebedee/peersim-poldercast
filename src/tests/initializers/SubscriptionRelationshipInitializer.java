@@ -8,6 +8,7 @@ import com.sun.org.apache.xerces.internal.impl.xs.opti.DefaultDocument;
 import peersim.config.Configuration;
 import peersim.core.CommonState;
 import peersim.core.Control;
+import peersim.core.Network;
 import peersim.core.Node;
 import peersim.dynamics.NodeInitializer;
 import poldercast.util.ID;
@@ -50,13 +51,18 @@ public class SubscriptionRelationshipInitializer implements NodeInitializer, Con
     public final int NUMBER_OF_NODES;
     public final int NUMBER_OF_TOPICS;
     private LinkedHashMap<Integer, HashSet<Integer>> nodesForSimulation = new LinkedHashMap<Integer, HashSet<Integer>>();
+    private ArrayList<Integer> subscriptions;
     // Rolling index for the interests we are going to set
     private int initializerIndex = 0;
 
     public SubscriptionRelationshipInitializer(String configPrefix) {
         this.NUMBER_OF_NODES = Configuration.getInt(configPrefix + ".numberOfNodes");
         this.NUMBER_OF_TOPICS = Configuration.getInt(configPrefix + ".numberOfTopics");
-        String datasetFile = Configuration.getString(configPrefix + ".datasetFile");
+        this.subscriptions = new ArrayList<Integer>(this.NUMBER_OF_TOPICS);
+        for(int i = 0; i < this.NUMBER_OF_TOPICS; i++) {
+            subscriptions.add(i);
+        }
+        /*String datasetFile = Configuration.getString(configPrefix + ".datasetFile");
 
         HashSet<Integer> subscriptionSpace = new HashSet<Integer>();
         // mapping of node number to list of topic numbers
@@ -129,7 +135,7 @@ public class SubscriptionRelationshipInitializer implements NodeInitializer, Con
             }
         }
 
-        // 5. prune nodes until size is at NUMBER_OF_NODES
+        // 5. prune nodes until size is at NUMBER_OF_NODES*/
     }
 
     /**
@@ -143,16 +149,28 @@ public class SubscriptionRelationshipInitializer implements NodeInitializer, Con
 
     @Override
     public void initialize(Node node) {
-        BaseNode baseNode = (BaseNode) node;
-        HashSet<Integer> subscriptions = new ArrayList<HashSet<Integer>>(this.nodesForSimulation.values() ).get(this.initializerIndex);
-        // TODO convert subscription to an ID appropriate for the system
-        //for(int sub : subscriptions) baseNode.subscribe(sub);
-        initializerIndex = (initializerIndex + 1) % this.NUMBER_OF_NODES;
+        this.initialise((BaseNode) node);
     }
 
     @Override
     public boolean execute() {
-        System.out.println("I could initialise here");
+        for(int i = 0; i < Network.size(); i++) {
+            BaseNode node = (BaseNode) Network.get(i);
+            this.initialise(node);
+        }
         return false;
+    }
+
+    public void initialise(BaseNode node) {
+        BaseNode baseNode = (BaseNode) node;
+        int numToChoose = CommonState.r.nextInt(Math.min(100, this.NUMBER_OF_TOPICS));
+        for(int i = 0; i < numToChoose; i++) {
+            baseNode.subscribe(new ID(subscriptions.get(i)));
+        }
+        /*HashSet<Integer> subscriptions = new ArrayList<HashSet<Integer>>(this.nodesForSimulation.values()).get(this.initializerIndex);
+        System.out.println("initialising "+subscriptions.size()+" for node");
+        for(int sub : subscriptions) baseNode.subscribe(new ID(sub));
+        initializerIndex = (initializerIndex + 1) % this.NUMBER_OF_NODES;*/
+
     }
 }

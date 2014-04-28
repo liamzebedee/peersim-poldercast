@@ -20,6 +20,10 @@ public class ID {
         this.id = new BigInteger(BITS, prng);
     }
 
+    public ID(int i) {
+        this.id = BigInteger.valueOf(i);
+    }
+
     public String toString() {
         return new String(Base64.encode(this.id));
     }

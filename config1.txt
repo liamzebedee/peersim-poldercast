@@ -1,7 +1,7 @@
 SIZE 25
 
 NUM_BOOTSTRAP_NODES 4
-NUM_TOPICS 100
+NUM_TOPICS 10
 
 # parameters of periodic execution
 CYCLES 50*CYCLE
@@ -40,9 +40,24 @@ protocol.cyclon poldercast.protocols.CyclonProtocol
     maxViewSize MAX_VIEW_SIZE
     maxGossipLength MAX_GOSSIP_LENGTH
 }
+protocol.vicinity poldercast.protocols.VicinityProtocol
+{
+    transport transportUniformRandom
+    step  CYCLE
+    maxViewSize MAX_VIEW_SIZE
+    maxGossipLength MAX_GOSSIP_LENGTH
+}
+protocol.rings poldercast.protocols.RingsProtocol
+{
+    transport transportUniformRandom
+    step  CYCLE
+    maxViewSize MAX_VIEW_SIZE
+    maxGossipLength MAX_GOSSIP_LENGTH
+    fanout 2
+}
 
 
-include.protocol transportUniformRandom cyclon
+include.protocol transportUniformRandom cyclon vicinity rings
 
 ########################################################### INITIALIZERS SECTION
 # this initializer assigns each node an ID
@@ -52,29 +67,36 @@ init.poldercastIdAssigner poldercast.initializers.PolderCastIdAssigner
 init.bootstrapper WireKOut
 {
     protocol cyclon
-    k 3
+    k NUM_BOOTSTRAP_NODES
     undir true
 }
 
 init.cycleScheduler CDScheduler
 {
     # list of cycle protocols separated by whitespace
-    protocol cyclon
+    protocol cyclon vicinity rings
+}
+
+init.subscriptionRelationshipInitializer tests.initializers.SubscriptionRelationshipInitializer
+{
+    numberOfNodes 10000
+    numberOfTopics NUM_TOPICS
+    datasetFile /media/liamzebedee/Windows7_OS/Users/liamzebedee/Dropbox/0 Code/peersim-poldercast/misc/network.bson
 }
 
 # the ordered sequence of initializers that must be run
-include.init poldercastIdAssigner bootstrapper cycleScheduler
+include.init poldercastIdAssigner bootstrapper cycleScheduler subscriptionRelationshipInitializer
 
 ########################################################### CONTROLS SECTION
 
 control.viewStats poldercast.controls.ViewStats
 {
     step  CYCLE
-    protocol cyclon
+    protocol cyclon vicinity rings
 }
 control.netStats poldercast.controls.NetStats
 {
     step  CYCLE
-    protocol cyclon
+    protocol cyclon vicinity rings
 }
 include.control viewStats netStats

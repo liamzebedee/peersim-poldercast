@@ -15,7 +15,7 @@ public class ViewStats extends BaseControl implements Control {
     }
 
     public boolean execute() {
-        if((CommonState.getTime() == CommonState.getEndTime())) {
+        if((CommonState.getTime() == CommonState.getEndTime() - 10)) {
             System.out.println("Logging ViewStats");
             this.startNewLog();
             int n = Network.size();
@@ -35,14 +35,14 @@ public class ViewStats extends BaseControl implements Control {
             for(NodeProfile profile : node.getCyclonProtocol().getRoutingTableCopy()) {
                 out.println(" - "+profile.toString());
             }
-            /*out.println("Vicinity : " + node.getVicinityProtocol().degree());
+            out.println("Vicinity : " + node.getVicinityProtocol().degree());
             for(NodeProfile profile : node.getVicinityProtocol().getRoutingTableCopy()) {
                 out.println(" - "+profile.toString());
             }
             out.println("Rings : " + node.getRingsProtocol().degree());
             for(NodeProfile profile : node.getRingsProtocol().getLinearView()) {
                 out.println(" - "+profile.toString());
-            }*/
+            }
             this.out.println();
             this.out.flush();
         }
