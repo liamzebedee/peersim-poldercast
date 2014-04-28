@@ -31,22 +31,28 @@ protocol.transportUniformRandom  peersim.transport.UniformRandomTransport
     maxdelay MAXDELAY
 }
 
+MAX_VIEW_SIZE 20
+MAX_GOSSIP_LENGTH 10
 protocol.cyclon poldercast.protocols.CyclonProtocol
 {
     transport transportUniformRandom
     step  CYCLE
+    maxViewSize MAX_VIEW_SIZE
+    maxGossipLength MAX_GOSSIP_LENGTH
 }
 protocol.vicinity poldercast.protocols.VicinityProtocol
 {
     transport transportUniformRandom
     step  CYCLE
+    maxViewSize MAX_VIEW_SIZE
+    maxGossipLength MAX_GOSSIP_LENGTH
 }
 protocol.rings poldercast.protocols.RingsProtocol
 {
     transport transportUniformRandom
     step  CYCLE
-    maxViewSize 20
-    maxGossipLength 10
+    maxViewSize MAX_VIEW_SIZE
+    maxGossipLength MAX_GOSSIP_LENGTH
     fanout 2
 }
 include.protocol transportUniformRandom cyclon vicinity rings
@@ -77,7 +83,7 @@ init.subscriptionRelationshipInitializer tests.initializers.SubscriptionRelation
 }
 
 # the ordered sequence of initializers that must be run
-include.init  subscriptionRelationshipInitializer
+include.init bootstrapper cycleScheduler
 
 ########################################################### CONTROLS SECTION
 control.topicSubscription tests.controls.TopicSubscription
