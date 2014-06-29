@@ -12,11 +12,7 @@ import poldercast.util.Util;
 
 import java.util.*;
 
-public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
-    public int bitsSent = 0;
-    public int bitsReceived = 0;
-    public int messagesSent = 0;
-    public int messagesReceived = 0;
+public class CyclonProtocol extends BandwidthTrackedProtocol implements CDProtocol, EDProtocol, Linkable {
     public LinkedHashSet<NodeProfile> routingTable;
 
     public final int protocolID;
@@ -74,10 +70,8 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
         }
         protocol.routingTable.remove(oldestNode); // proactive removal to combat churn
         GossipMsg msg = new GossipMsg(nodesToSend, GossipMsg.Types.GOSSIP_QUERY, thisNode);
-        protocol.bitsSent += msg.getSizeInBits();
-        protocol.messagesSent++;
-
         Util.sendMsg(thisNode, oldestNode.getNode(), msg, protocolID);
+        protocol.messageSent(msg);
     }
 
     public synchronized void processEvent(Node node, int protocolID, java.lang.Object event) {
@@ -89,8 +83,7 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
             throw new RuntimeException("CyclonProtocol should only receive GossipMsg events");
         }
 
-        protocol.bitsReceived += receivedGossipMsg.getSizeInBits();
-        protocol.messagesReceived++;
+        protocol.messageReceived(receivedGossipMsg);
 
         if (receivedGossipMsg.getType() == GossipMsg.Types.GOSSIP_QUERY) {
             protocol.mergeNodes(thisNode, receivedGossipMsg.getNodeProfiles());
@@ -107,9 +100,8 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
                 nodeProfileIterator.remove();
             }
             GossipMsg replyGossipMsg = new GossipMsg(nodesToSend, GossipMsg.Types.GOSSIP_RESPONSE, thisNode);
-            protocol.bitsSent += replyGossipMsg.getSizeInBits();
-            protocol.messagesSent++;
             Util.sendMsg(thisNode, receivedGossipMsg.getSender(), replyGossipMsg, protocolID);
+            protocol.messageSent(replyGossipMsg);
 
         } else if (receivedGossipMsg.getType() == GossipMsg.Types.GOSSIP_RESPONSE) {
             // Merge nodes into routing table
@@ -167,7 +159,7 @@ public class CyclonProtocol implements CDProtocol, EDProtocol, Linkable {
     public synchronized boolean addNeighbor(Node neighbour) {
         NodeProfile profile = ((PolderCastBaseNode) neighbour).getNodeProfile();
 
-        if(this.routingTable.size() == 20) {
+        if(this.routingTable.size() == this.MAX_VIEW_SIZE) {
             throw new RuntimeException("We shouldn't be attempting to bootstrap with more than 20 neighbours");
         }
 
