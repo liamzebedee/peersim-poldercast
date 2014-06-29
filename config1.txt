@@ -1,11 +1,10 @@
-SIZE 25
-
 NUM_BOOTSTRAP_NODES 4
 NUM_TOPICS 10
+NUM_NODES 1000
 
 # parameters of periodic execution
 CYCLES 50*CYCLE
-CYCLE 10
+CYCLE 10 # length of a cycle
 ENDTIME CYCLES
 
 # parameters of message transfer
@@ -14,8 +13,8 @@ MAXDELAY 1*CYCLE
 
 
 ########################################################### GENERAL SIMULATION SECTION
-random.seed 34245324
-network.size SIZE
+random.seed 42
+network.size NUM_NODES
 simulation.endtime ENDTIME
 simulation.logtime CYCLE
 network.node poldercast.util.PolderCastBaseNode
@@ -77,12 +76,12 @@ init.cycleScheduler CDScheduler
     protocol cyclon vicinity rings
 }
 
-init.subscriptionRelationshipInitializer tests.initializers.SubscriptionRelationshipInitializer
-{
-    numberOfNodes 10000
-    numberOfTopics NUM_TOPICS
-    datasetFile /media/liamzebedee/Windows7_OS/Users/liamzebedee/Dropbox/0 Code/peersim-poldercast/misc/network.bson
-}
+#init.subscriptionRelationshipInitializer tests.initializers.SubscriptionRelationshipInitializer
+#{
+#    numberOfNodes NUM_NODES
+#    numberOfTopics NUM_TOPICS
+#    datasetFile /media/liamzebedee/Windows7_OS/Users/liamzebedee/Dropbox/0 Code/peersim-poldercast/misc/network.bson
+#}
 
 # the ordered sequence of initializers that must be run
 include.init poldercastIdAssigner bootstrapper cycleScheduler subscriptionRelationshipInitializer
