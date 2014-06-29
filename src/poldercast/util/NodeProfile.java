@@ -2,6 +2,7 @@ package poldercast.util;
 
 import poldercast.protocols.RingsProtocol;
 
+import java.util.HashMap;
 import java.util.Map;
 
 public class NodeProfile implements SizeInBits {
@@ -11,10 +12,10 @@ public class NodeProfile implements SizeInBits {
     private Map<ID, Byte> subscriptions;
     private PolderCastBaseNode node;
 
-    public NodeProfile(PolderCastBaseNode node, ID id, Map<ID,Byte> subscriptions) {
+    public NodeProfile(PolderCastBaseNode node, ID id) {
         this.age = 0;
         this.id = id;
-        this.subscriptions = subscriptions;
+        this.subscriptions = new HashMap<ID, Byte>();
         // NOTE in the real implementation, this would include network details, but this isn't necessary here
         // instead we use the node to send messages via the @Link{Transport}
         this.node = node;
@@ -52,7 +53,7 @@ public class NodeProfile implements SizeInBits {
 
     public synchronized void addSubscription(ID topic) {
         // priority is defined as the number of nodes we need to fill the view
-        byte defaultPriority = this.getNode().getRingsProtocol().MAX_VIEW_SIZE;
+        byte defaultPriority = 4; // TODO
         this.subscriptions.put(topic, defaultPriority);
     }
 

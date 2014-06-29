@@ -15,7 +15,7 @@ public class PublishMsg extends NetworkMsg {
     public ID getTopic() { return this.topic; }
 
     public int getUniqueIdentifier() {
-        return this.event.hashCode();
+        return java.util.Arrays.hashCode(this.event);
     }
 
     @Override

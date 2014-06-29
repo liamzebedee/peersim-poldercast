@@ -4,6 +4,7 @@ import peersim.config.Configuration;
 import peersim.core.Control;
 import peersim.util.FileNameGenerator;
 
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
 
@@ -20,10 +21,14 @@ public abstract class BaseControl implements Control {
     public void startNewLog() {
         this.fileName = new FileNameGenerator(prefix.replaceFirst("control.", "") + '.', ".log").nextCounterName();
         try {
-            this.out = new PrintStream(new FileOutputStream(fileName));
+            File f = new File("results/"+fileName);
+            if(!f.exists())
+                f.mkdirs();
+                f.createNewFile();
+            this.out = new PrintStream(f);
         } catch(Exception e) {
             e.printStackTrace();
-            System.exit(1);
+            new RuntimeException("Can't go any further");
         }
     }
 }

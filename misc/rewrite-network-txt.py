@@ -21,6 +21,6 @@ with open("network.txt") as infile:
 		else:
 			data[nodeA] = [nodeB]
 		print(len(data))
-		if len(data) > 100000: break
+		if len(data) > 10500: break
 
 bson.serialize_to_stream(data, open("network.bson", 'wb'))

@@ -19,7 +19,7 @@ public class VicinityComparator implements Comparator<NodeProfile> {
 
     @Override
     public int compare(NodeProfile nodeA, NodeProfile nodeB) {
-        if(this.perspectiveNode.getSubscriptions().isEmpty()) return 0;
+        if(this.perspectiveNode.getSubscriptions().isEmpty()) throw new RuntimeException("From Vicinity module - node does not have any subscriptions - this shouldn't be so");
 
         // By default, the nodes are assumed to be equally ranked
         int retVal = 0;

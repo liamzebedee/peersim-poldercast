@@ -14,6 +14,7 @@ import peersim.dynamics.NodeInitializer;
 import poldercast.util.ID;
 import sun.security.krb5.Config;
 import tests.util.BaseNode;
+import tests.util.Util;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -51,17 +52,20 @@ public class SubscriptionRelationshipInitializer implements NodeInitializer, Con
     public final int NUMBER_OF_NODES;
     public final int NUMBER_OF_TOPICS;
     private LinkedHashMap<Integer, HashSet<Integer>> nodesForSimulation = new LinkedHashMap<Integer, HashSet<Integer>>();
-    private ArrayList<Integer> subscriptions;
+    private ArrayList<ID> subscriptions;
     // Rolling index for the interests we are going to set
     private int initializerIndex = 0;
 
     public SubscriptionRelationshipInitializer(String configPrefix) {
         this.NUMBER_OF_NODES = Configuration.getInt(configPrefix + ".numberOfNodes");
         this.NUMBER_OF_TOPICS = Configuration.getInt(configPrefix + ".numberOfTopics");
-        this.subscriptions = new ArrayList<Integer>(this.NUMBER_OF_TOPICS);
+        this.subscriptions = new ArrayList<ID>(this.NUMBER_OF_TOPICS);
+
+        // Generate topics
         for(int i = 0; i < this.NUMBER_OF_TOPICS; i++) {
-            subscriptions.add(i);
+            subscriptions.add(new ID(i));
         }
+
         /*String datasetFile = Configuration.getString(configPrefix + ".datasetFile");
 
         HashSet<Integer> subscriptionSpace = new HashSet<Integer>();
@@ -140,12 +144,12 @@ public class SubscriptionRelationshipInitializer implements NodeInitializer, Con
 
     /**
      * Used to sort Map.Entry elements in decreasing order of value.
-     */
+
     static final class EntryComparator<K,V extends Comparable<V>> implements Comparator<Map.Entry<K,V>> {
         public int compare(Map.Entry<K, V> o1, Map.Entry<K, V> o2) {
             return - o1.getValue().compareTo(o2.getValue());
         }
-    }
+    }*/
 
     @Override
     public void initialize(Node node) {
@@ -161,11 +165,10 @@ public class SubscriptionRelationshipInitializer implements NodeInitializer, Con
         return false;
     }
 
-    public void initialise(BaseNode node) {
-        BaseNode baseNode = (BaseNode) node;
-        int numToChoose = CommonState.r.nextInt(Math.min(100, this.NUMBER_OF_TOPICS));
-        for(int i = 0; i < numToChoose; i++) {
-            baseNode.subscribe(new ID(subscriptions.get(i)));
+    public void initialise(BaseNode baseNode) {
+        int numTopicsToAdd = Util.randInt(CommonState.r, 100, this.NUMBER_OF_TOPICS);
+        for(int i = 0; i < numTopicsToAdd; i++) {
+            baseNode.subscribe(subscriptions.get(i));
         }
         /*HashSet<Integer> subscriptions = new ArrayList<HashSet<Integer>>(this.nodesForSimulation.values()).get(this.initializerIndex);
         System.out.println("initialising "+subscriptions.size()+" for node");

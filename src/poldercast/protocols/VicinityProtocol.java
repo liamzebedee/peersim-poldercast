@@ -9,11 +9,7 @@ import poldercast.util.*;
 
 import java.util.*;
 
-public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
-    public int bitsSent = 0;
-    public int bitsReceived = 0;
-    public int messagesSent = 0;
-    public int messagesReceived = 0;
+public class VicinityProtocol extends BandwidthTrackedProtocol implements CDProtocol, EDProtocol, Linkable {
     public LinkedHashSet<NodeProfile> routingTable;
 
     public final int protocolID;
@@ -25,7 +21,7 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
         this.protocolID = Configuration.lookupPid(VICINITY);
         this.MAX_GOSSIP_LENGTH = (byte) Configuration.getInt(configPrefix + ".maxGossipLength");
         this.MAX_VIEW_SIZE = (byte) Configuration.getInt(configPrefix + ".maxViewSize");
-        this.routingTable = new LinkedHashSet<NodeProfile>(MAX_VIEW_SIZE * 2);
+        this.routingTable = new LinkedHashSet<NodeProfile>(MAX_VIEW_SIZE);
     }
 
     @Override
@@ -67,13 +63,12 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
         HashSet<NodeProfile> tmpProfilesToSend = thisNode.getUnionOfAllViews();
         // remove the target and also add our node into the mix
         tmpProfilesToSend.remove(oldestNode); tmpProfilesToSend.add(thisNode.getNodeProfile());
-        HashSet<NodeProfile> profilesToSend = this.selectClosestNodesForNode(thisNode, oldestNode,
+        HashSet<NodeProfile> profilesToSend = protocol.selectClosestNodesForNode(thisNode, oldestNode,
                 tmpProfilesToSend, protocol.MAX_GOSSIP_LENGTH);
 
         GossipMsg msg = new GossipMsg(profilesToSend, GossipMsg.Types.GOSSIP_QUERY, thisNode);
         protocol.routingTable.remove(oldestNode); // proactive removal to combat churn
-        protocol.bitsSent += msg.getSizeInBits();
-        protocol.messagesSent++;
+        protocol.messageSent(msg);
         Util.sendMsg(thisNode, oldestNode.getNode(), msg, protocolID);
     }
 
@@ -86,23 +81,19 @@ public class VicinityProtocol implements CDProtocol, EDProtocol, Linkable {
             throw new RuntimeException("CyclonProtocol should only receive GossipMsg events");
         }
 
-        protocol.bitsReceived += receivedGossipMsg.getSizeInBits();
-        protocol.messagesReceived++;
+        protocol.messageSent(receivedGossipMsg);
 
         if (receivedGossipMsg.getType() == GossipMsg.Types.GOSSIP_QUERY) {
             protocol.mergeNodes(thisNode, receivedGossipMsg.getNodeProfiles());
             protocol.communicationReceivedFromNode(receivedGossipMsg.getSender().getNodeProfile());
 
-
-            HashSet<NodeProfile> profilesToSend = this.selectClosestNodesForNode(thisNode,
+            HashSet<NodeProfile> profilesToSend = protocol.selectClosestNodesForNode(thisNode,
                     receivedGossipMsg.getSender().getNodeProfile(),
                     thisNode.getUnionOfAllViews(), protocol.MAX_GOSSIP_LENGTH);
 
             GossipMsg msg = new GossipMsg(profilesToSend, GossipMsg.Types.GOSSIP_RESPONSE, thisNode);
-            protocol.bitsSent += msg.getSizeInBits();
-            protocol.messagesSent++;
             Util.sendMsg(thisNode, receivedGossipMsg.getSender(), msg, protocolID);
-
+            protocol.messageSent(msg);
 
         } else if (receivedGossipMsg.getType() == GossipMsg.Types.GOSSIP_RESPONSE) {
             protocol.mergeNodes(thisNode, receivedGossipMsg.getNodeProfiles());

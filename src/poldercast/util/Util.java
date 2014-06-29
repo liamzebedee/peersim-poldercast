@@ -33,4 +33,6 @@ public class Util {
     public static int getCycleLength() {
         return Configuration.getInt("CYCLE");
     }
+
+    public static int getRingsViewSize() { return Configuration.getInt("rings.maxViewSize"); }
 }

@@ -1,6 +1,7 @@
 package poldercast.util;
 
 import peersim.config.Configuration;
+import peersim.config.MissingParameterException;
 import peersim.core.CommonState;
 import peersim.core.GeneralNode;
 import poldercast.protocols.CyclonProtocol;
@@ -20,7 +21,7 @@ public class PolderCastBaseNode extends BaseNode  {
     }
 
     public void initModules() {
-        this.nodeProfile = new NodeProfile(this, new ID(CommonState.r), new HashMap<ID, Byte>());
+        this.nodeProfile = new NodeProfile(this, new ID(CommonState.r));
     }
 
     public NodeProfile getNodeProfile() { return this.nodeProfile; }
@@ -34,14 +35,19 @@ public class PolderCastBaseNode extends BaseNode  {
     }
 
     public RingsProtocol getRingsProtocol() {
-        return (RingsProtocol) this.getProtocol(Configuration.lookupPid(RingsProtocol.RINGS));
+        RingsProtocol protocol = null;
+        try {
+            return (RingsProtocol) this.getProtocol(Configuration.lookupPid(RingsProtocol.RINGS));
+        } catch(MissingParameterException e) {
+            return null;
+        }
     }
 
     public HashSet<NodeProfile> getUnionOfAllViews() {
         HashSet<NodeProfile> union = new HashSet<NodeProfile>();
         union.addAll(this.getCyclonProtocol().getRoutingTableCopy());
         union.addAll(this.getVicinityProtocol().getRoutingTableCopy());
-        union.addAll(this.getRingsProtocol().getLinearView());
+        //union.addAll(this.getRingsProtocol().getLinearView());
         return union;
     }
 
@@ -57,6 +63,6 @@ public class PolderCastBaseNode extends BaseNode  {
     @Override
     public void subscribe(ID topic) {
         this.nodeProfile.addSubscription(topic);
-        this.getRingsProtocol().changeInSubscriptions(this);
+        //this.getRingsProtocol().changeInSubscriptions(this);
     }
 }

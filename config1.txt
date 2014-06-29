@@ -1,5 +1,5 @@
 NUM_BOOTSTRAP_NODES 4
-NUM_TOPICS 10
+NUM_TOPICS 106
 NUM_NODES 1000
 
 # parameters of periodic execution
@@ -31,6 +31,7 @@ protocol.transportUniformRandom  peersim.transport.UniformRandomTransport
 }
 
 MAX_VIEW_SIZE 20
+RINGS_MAX_VIEW_SIZE 4 # for each topic in the rings view
 MAX_GOSSIP_LENGTH 10
 protocol.cyclon poldercast.protocols.CyclonProtocol
 {
@@ -50,13 +51,14 @@ protocol.rings poldercast.protocols.RingsProtocol
 {
     transport transportUniformRandom
     step  CYCLE
-    maxViewSize MAX_VIEW_SIZE
+    maxViewSize RINGS_MAX_VIEW_SIZE
     maxGossipLength MAX_GOSSIP_LENGTH
     fanout 2
 }
 
 
-include.protocol transportUniformRandom cyclon vicinity rings
+include.protocol transportUniformRandom cyclon vicinity
+#rings
 
 ########################################################### INITIALIZERS SECTION
 # this initializer assigns each node an ID
@@ -73,15 +75,16 @@ init.bootstrapper WireKOut
 init.cycleScheduler CDScheduler
 {
     # list of cycle protocols separated by whitespace
-    protocol cyclon vicinity rings
+    protocol cyclon vicinity
+    #rings
 }
 
-#init.subscriptionRelationshipInitializer tests.initializers.SubscriptionRelationshipInitializer
-#{
-#    numberOfNodes NUM_NODES
-#    numberOfTopics NUM_TOPICS
-#    datasetFile /media/liamzebedee/Windows7_OS/Users/liamzebedee/Dropbox/0 Code/peersim-poldercast/misc/network.bson
-#}
+init.subscriptionRelationshipInitializer tests.initializers.SubscriptionRelationshipInitializer
+{
+    numberOfNodes NUM_NODES
+    numberOfTopics NUM_TOPICS
+    datasetFile /media/liamzebedee/Windows7_OS/Users/liamzebedee/Dropbox/0 Code/peersim-poldercast/misc/network.bson
+}
 
 # the ordered sequence of initializers that must be run
 include.init poldercastIdAssigner bootstrapper cycleScheduler subscriptionRelationshipInitializer
@@ -91,11 +94,13 @@ include.init poldercastIdAssigner bootstrapper cycleScheduler subscriptionRelati
 control.viewStats poldercast.controls.ViewStats
 {
     step  CYCLE
-    protocol cyclon vicinity rings
+    protocol cyclon vicinity
+    #rings
 }
 control.netStats poldercast.controls.NetStats
 {
     step  CYCLE
-    protocol cyclon vicinity rings
+    protocol cyclon vicinity
+    #rings
 }
 include.control viewStats netStats
