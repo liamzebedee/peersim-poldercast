@@ -13,14 +13,16 @@ public class VicinityProtocol extends BandwidthTrackedProtocol implements CDProt
     public LinkedHashSet<NodeProfile> routingTable;
 
     public final int protocolID;
-    public final byte MAX_VIEW_SIZE;
-    public final byte MAX_GOSSIP_LENGTH;
+    public static final byte MAX_VIEW_SIZE;
+    public static final byte MAX_GOSSIP_LENGTH;
     public static final String VICINITY = "vicinity";
+    static {
+        MAX_GOSSIP_LENGTH = (byte) Configuration.getInt("protocol.vicinity.maxGossipLength");
+        MAX_VIEW_SIZE = (byte) Configuration.getInt("protocol.vicinity.maxViewSize");
+    }
 
     public VicinityProtocol(String configPrefix) {
         this.protocolID = Configuration.lookupPid(VICINITY);
-        this.MAX_GOSSIP_LENGTH = (byte) Configuration.getInt(configPrefix + ".maxGossipLength");
-        this.MAX_VIEW_SIZE = (byte) Configuration.getInt(configPrefix + ".maxViewSize");
         this.routingTable = new LinkedHashSet<NodeProfile>(MAX_VIEW_SIZE);
     }
 

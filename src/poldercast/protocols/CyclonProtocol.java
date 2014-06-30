@@ -16,14 +16,16 @@ public class CyclonProtocol extends BandwidthTrackedProtocol implements CDProtoc
     public LinkedHashSet<NodeProfile> routingTable;
 
     public final int protocolID;
-    public final byte MAX_VIEW_SIZE;
-    public final byte MAX_GOSSIP_LENGTH;
+    public static final byte MAX_VIEW_SIZE;
+    public static final byte MAX_GOSSIP_LENGTH;
     public static final String CYCLON = "cyclon";
+    static {
+        MAX_GOSSIP_LENGTH = (byte) Configuration.getInt("protocol.cyclon.maxGossipLength");
+        MAX_VIEW_SIZE = (byte) Configuration.getInt("protocol.cyclon.maxViewSize");
+    }
 
     public CyclonProtocol(String configPrefix) {
         this.protocolID = Configuration.lookupPid(CYCLON);
-        this.MAX_GOSSIP_LENGTH = (byte) Configuration.getInt(configPrefix + ".maxGossipLength");
-        this.MAX_VIEW_SIZE = (byte) Configuration.getInt(configPrefix + ".maxViewSize");
         this.routingTable = new LinkedHashSet<NodeProfile>(MAX_VIEW_SIZE);
     }
 

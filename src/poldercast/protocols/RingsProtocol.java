@@ -15,16 +15,18 @@ public class RingsProtocol extends BandwidthTrackedProtocol implements CDProtoco
     public HashSet<Integer> receivedEvents = new HashSet<Integer>();
 
     public final int protocolID;
-    public final byte MAX_GOSSIP_LENGTH;
-    public final byte MAX_VIEW_SIZE;
-    public final byte FANOUT;
+    public static final byte MAX_GOSSIP_LENGTH;
+    public static final byte MAX_VIEW_SIZE;
+    public static final byte FANOUT;
     public static final String RINGS = "rings";
+    static {
+        MAX_GOSSIP_LENGTH = (byte) Configuration.getInt("protocol.rings.maxGossipLength");
+        MAX_VIEW_SIZE = (byte) Configuration.getInt("protocol.rings.maxViewSize");
+        FANOUT = (byte) Configuration.getInt("protocol.rings.fanout");
+    }
 
     public RingsProtocol(String configPrefix) {
         this.protocolID = Configuration.lookupPid(RINGS);
-        this.MAX_GOSSIP_LENGTH = (byte) Configuration.getInt(configPrefix + ".maxGossipLength");
-        this.MAX_VIEW_SIZE = (byte) Configuration.getInt(configPrefix + ".maxViewSize");
-        this.FANOUT = (byte) Configuration.getInt(configPrefix + ".fanout");
     }
 
     @Override
@@ -59,7 +61,7 @@ public class RingsProtocol extends BandwidthTrackedProtocol implements CDProtoco
         RingsProtocol protocol = (RingsProtocol) thisNode.getProtocol(protocolID);
 
         // Update priorities for topics
-
+        protocol.updatePrioritiesForSubscriptions(thisNode.getNodeProfile());
 
         // Increment age of all nodes
         for(RingsTopicView view : this.routingTable.values()) {
@@ -194,8 +196,12 @@ public class RingsProtocol extends BandwidthTrackedProtocol implements CDProtoco
 
     private void updatePrioritiesForSubscriptions(NodeProfile thisNode) {
         for(Map.Entry<ID,Byte> entry : thisNode.getSubscriptions().entrySet()) {
-            byte priority = (byte) (this.MAX_VIEW_SIZE - this.routingTable.get(entry.getKey()).degree());
-            thisNode.getSubscriptions().put(entry.getKey(), priority);
+            RingsTopicView view = this.routingTable.get(entry.getKey());
+            if(view == null) {
+                view = new RingsTopicView();
+                this.routingTable.put(entry.getKey(), view);
+            }
+            thisNode.getSubscriptions().put(entry.getKey(), (byte) (this.MAX_VIEW_SIZE - view.degree()));
         }
     }
 
