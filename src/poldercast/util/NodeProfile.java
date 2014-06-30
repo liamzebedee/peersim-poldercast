@@ -46,7 +46,7 @@ public class NodeProfile implements SizeInBits {
     public PolderCastBaseNode getNode() { return node; }
 
     public String toString() {
-        return this.id.toString();
+        return this.node.getID()+"";
     }
 
     public Map<ID, Byte> getSubscriptions() { return this.subscriptions; }

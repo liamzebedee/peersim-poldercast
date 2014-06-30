@@ -15,11 +15,15 @@ public class VicinityComparator implements Comparator<NodeProfile> {
     public VicinityComparator(NodeProfile perspectiveNode, byte maxTopicPriority) {
         this.perspectiveNode = perspectiveNode;
         this.MAX_TOPIC_PRIORITY = maxTopicPriority;
+        if(this.perspectiveNode.getSubscriptions().isEmpty()) throw new RuntimeException("Perspective node doesn't have subscriptions - shouldn't be so");
     }
 
+    /*
+     * Ranks the closeness of nodes according to priority/number of common topics
+     * Nodes that are closer rank higher
+     */
     @Override
     public int compare(NodeProfile nodeA, NodeProfile nodeB) {
-        if(this.perspectiveNode.getSubscriptions().isEmpty()) throw new RuntimeException("From Vicinity module - node does not have any subscriptions - this shouldn't be so");
         if(nodeA.equals(nodeB)) throw new RuntimeException("Attempting to compare the same two nodes - duplicate in node set");
         if(this.perspectiveNode.equals(nodeA) || this.perspectiveNode.equals(nodeB)) throw new RuntimeException("Attempting to compare node with perspective node - duplicate in node set");
 
