@@ -30,6 +30,7 @@ public class ID {
 
     @Override
     public boolean equals(Object id) {
+        if(id == null) return false;
         ID anotherID = (ID) id;
         return this.id.equals(anotherID.id);
     }

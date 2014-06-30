@@ -108,9 +108,10 @@ public class VicinityProtocol extends BandwidthTrackedProtocol implements CDProt
                                                                          HashSet<NodeProfile> nodeSelection, byte maxNodes) {
         ArrayList<NodeProfile> closestNodes = new ArrayList<NodeProfile>();
         closestNodes.addAll(nodeSelection);
+        closestNodes.remove(node); // TODO technically we should stop this at the source - where nodeSelection is passed
         Collections.sort(closestNodes, new VicinityComparator(node, this.MAX_VIEW_SIZE));
         // Get up to 20 of the closest nodes
-        return new LinkedHashSet<NodeProfile>(closestNodes.subList(0, Math.min(nodeSelection.size(), maxNodes)));
+        return new LinkedHashSet<NodeProfile>( closestNodes.subList(0, Math.min(closestNodes.size(), maxNodes) - 1 ) );
     }
 
     public synchronized void mergeNodes(PolderCastBaseNode thisNode, HashSet<NodeProfile> profiles) {

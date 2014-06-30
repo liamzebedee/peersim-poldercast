@@ -20,6 +20,8 @@ public class VicinityComparator implements Comparator<NodeProfile> {
     @Override
     public int compare(NodeProfile nodeA, NodeProfile nodeB) {
         if(this.perspectiveNode.getSubscriptions().isEmpty()) throw new RuntimeException("From Vicinity module - node does not have any subscriptions - this shouldn't be so");
+        if(nodeA.equals(nodeB)) throw new RuntimeException("Attempting to compare the same two nodes - duplicate in node set");
+        if(this.perspectiveNode.equals(nodeA) || this.perspectiveNode.equals(nodeB)) throw new RuntimeException("Attempting to compare node with perspective node - duplicate in node set");
 
         // By default, the nodes are assumed to be equally ranked
         int retVal = 0;
@@ -48,7 +50,8 @@ public class VicinityComparator implements Comparator<NodeProfile> {
             // Among candidate nodes that rank equally in terms of topic priorities, proximity
             // is determined by the number of topics shared with the target node: the more
             // shared topics, the closer their ranking.
-            retVal = nodeANumberOfSharedTopics > nodeBNumberOfSharedTopics ? 1 : -1;
+            if(nodeANumberOfSharedTopics != nodeBNumberOfSharedTopics)
+                retVal = nodeANumberOfSharedTopics > nodeBNumberOfSharedTopics ? 1 : -1;
         }
 
         return retVal;
