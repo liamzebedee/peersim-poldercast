@@ -12,7 +12,7 @@ public class NetStats extends BaseControl implements Control {
     }
 
     public boolean execute() {
-        if(CommonState.getTime() == CommonState.getEndTime() - 1) {
+        if(CommonState.getTime() == CommonState.getEndTime() - 10) {
             outputMessageStats();
             this.out.close();
         }
