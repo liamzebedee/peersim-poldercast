@@ -1,3 +1,3 @@
 #!/bin/bash
 export CLASSPATH=./bin:./libs/*
-java -Xmx2g peersim.Simulator config1.txt
+java -Xmx2g -javaagent:./libs/SizeOf.jar peersim.Simulator config1.txt

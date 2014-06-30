@@ -311,6 +311,14 @@ public class RingsProtocol extends BandwidthTrackedProtocol implements CDProtoco
             view.removeNode(nodeProfile);
         }
     }
+
+
+
+
+
+
+
+
     public void onKill() {}
     public boolean addNeighbor(Node neighbour) {
         throw new RuntimeException("We shouldn't be attempting to bootstrap the Rings module using this method");

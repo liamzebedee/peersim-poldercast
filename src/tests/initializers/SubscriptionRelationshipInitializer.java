@@ -35,7 +35,6 @@ public class SubscriptionRelationshipInitializer implements NodeInitializer, Con
         for(int i = 1; i < this.NUMBER_OF_TOPICS; i++) {
             this.subscriptions[i] = new ID(i);
             this.subscriptionProbabilitiesCache[i] = this.dist.probability(i);
-            System.out.println(this.subscriptionProbabilitiesCache[i]*this.NUMBER_OF_NODES);
         }
     }
 
@@ -62,7 +61,6 @@ public class SubscriptionRelationshipInitializer implements NodeInitializer, Con
         int retries = -1;
         while(!hasSub) {
             retries++;
-            if(retries > 0) System.out.println(retries + " argh");
             for(int i = 1; i < this.subscriptionProbabilitiesCache.length; i++) {
                 if(shouldBeSubscribedToTopicN(i)) {
                     baseNode.subscribe(subscriptions[i]);

@@ -151,9 +151,6 @@ public class VicinityProtocol extends BandwidthTrackedProtocol implements CDProt
 
 
 
-
-
-
     public synchronized void communicationReceivedFromNode(NodeProfile node) {
         if(this.routingTable.contains(node)) node.resetAge();
     }

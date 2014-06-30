@@ -9,7 +9,6 @@ import poldercast.util.GossipMsg;
 import poldercast.util.NodeProfile;
 import poldercast.util.PolderCastBaseNode;
 import poldercast.util.Util;
-
 import java.util.*;
 
 public class CyclonProtocol extends BandwidthTrackedProtocol implements CDProtocol, EDProtocol, Linkable {

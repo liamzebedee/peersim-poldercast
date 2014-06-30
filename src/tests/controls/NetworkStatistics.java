@@ -34,8 +34,8 @@ public class NetworkStatistics extends BaseControl {
 
             out.println("Total messages sent = "+totalMessagesSent);
             out.println("Total messages recv = "+totalMessagesReceived);
-            out.println("Total MB sent = "+totalBitsSent/1000/1000);
-            out.println("Total MB recv = "+totalBitsRecv/1000/1000);
+            out.println("Total MB sent = "+totalBitsSent/8/1000/1000);
+            out.println("Total MB recv = "+totalBitsRecv/8/1000/1000);
         }
 
         // Measure how much network bandwidth is consumed in terms of megabytes sent and received

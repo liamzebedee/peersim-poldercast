@@ -1,5 +1,6 @@
 package poldercast.initializers;
 
+import net.sourceforge.sizeof.SizeOf;
 import peersim.core.Control;
 import peersim.core.Network;
 import peersim.core.Node;
