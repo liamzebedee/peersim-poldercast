@@ -2,13 +2,11 @@ package poldercast.protocols;
 
 import peersim.cdsim.CDProtocol;
 import peersim.config.Configuration;
+import peersim.core.CommonState;
 import peersim.core.Linkable;
 import peersim.core.Node;
 import peersim.edsim.EDProtocol;
-import poldercast.util.ID;
-import poldercast.util.IDComparator;
-import poldercast.util.NodeProfile;
-import poldercast.util.PolderCastBaseNode;
+import poldercast.util.*;
 
 import java.util.*;
 
@@ -60,10 +58,34 @@ public class RingsProtocol extends BandwidthTrackedProtocol implements CDProtoco
         PolderCastBaseNode thisNode = (PolderCastBaseNode) node;
         RingsProtocol protocol = (RingsProtocol) thisNode.getProtocol(protocolID);
 
+        // Increment age of all nodes
+        for(RingsTopicView view : this.routingTable.values()) {
+            view.incrementAgeOfNodes();
+        }
+
+        // Get node profiles
         if(thisNode.getNodeProfile().getSubscriptions().size() == 0) return;
         HashSet<NodeProfile> profiles = protocol.getLinearView();
         if(profiles.isEmpty()) protocol.bootstrapFromOtherModules(thisNode);
-        if(profiles.isEmpty()) return;
+        if(!profiles.isEmpty()) {
+            profiles = protocol.getLinearView();
+        } else return;
+
+        // Select oldest node
+        Iterator<NodeProfile> nodeProfileIterator = profiles.iterator();
+        NodeProfile oldestNode = nodeProfileIterator.next();
+        while (nodeProfileIterator.hasNext()) {
+            NodeProfile profile = nodeProfileIterator.next();
+            if (profile.getAge() > oldestNode.getAge())
+                oldestNode = profile;
+        }
+
+        ArrayList<NodeProfile> nodesToSend = protocol.selectNodesToSend(thisNode, oldestNode);
+        //protocol.removeNode(oldestNode); // proactive removal to combat churn
+        //GossipMsg msg = new GossipMsg(nodesToSend, GossipMsg.Types.GOSSIP_QUERY, thisNode);
+        //if(thisNode.measureTopicSubscriptionLoad) thisNode.load++; // TODO load
+        //Util.sendMsg(thisNode, oldestNode.getNode(), msg, protocolID);
+        //protocol.messageSent(msg);
     }
 
     public synchronized void processEvent(Node node, int protocolID, java.lang.Object event) {
@@ -90,51 +112,81 @@ public class RingsProtocol extends BandwidthTrackedProtocol implements CDProtoco
         candidates.remove(thisNode.getNodeProfile());
 
         for(ID subscription : thisNode.getNodeProfile().getSubscriptions().keySet()) {
-            ArrayList<NodeProfile> candidatesThatShareInterest = new ArrayList<NodeProfile>();
-            for (NodeProfile profile : candidates) {
-                if (profile.getSubscriptions().containsKey(subscription)) {
-                    candidatesThatShareInterest.add(profile);
-                }
+            this.routingTable.put(subscription, this.selectBestNodesForTopic(subscription, candidates, thisNode.getNodeProfile()));
+        }
+    }
+
+    public RingsTopicView selectBestNodesForTopic(ID topic, HashSet<NodeProfile> candidates, NodeProfile perspectiveNode) {
+        RingsTopicView bestNodes = new RingsTopicView();
+
+        ArrayList<NodeProfile> candidatesThatShareInterest = new ArrayList<NodeProfile>();
+        for (NodeProfile profile : candidates) {
+            if (profile.getSubscriptions().containsKey(topic)) {
+                candidatesThatShareInterest.add(profile);
             }
-
-            if(candidatesThatShareInterest.isEmpty()) continue;
-
-            // So we can compute indexOfOurNode, and thus, the justLower and justHigher nodes
-            candidatesThatShareInterest.add(thisNode.getNodeProfile());
-            // Order by ID
-            Collections.sort(candidatesThatShareInterest, new IDComparator());
-            int indexOfOurNode = candidatesThatShareInterest.indexOf(thisNode.getNodeProfile());
-
-            RingsTopicView view = new RingsTopicView();
-            LinkedHashSet justLower = new LinkedHashSet();
-            LinkedHashSet justHigher = new LinkedHashSet<NodeProfile>();
-
-            int justHigherNodesNeeded, justHigherIndex;
-            int justLowerNodesNeeded, justLowerIndex;
-            justHigherNodesNeeded = justLowerNodesNeeded = this.MAX_VIEW_SIZE / 2;
-            justHigherIndex = justLowerIndex = 0;
-
-            do {
-                // add one to indexOfOurNode to get the node below it
-                int g = (indexOfOurNode+1 + justHigherIndex) % (candidatesThatShareInterest.size()-1);
-                justHigher.add(candidatesThatShareInterest.get(g));
-                justHigherNodesNeeded--;
-                justHigherIndex++;
-            } while((justHigherNodesNeeded > 0) && (justHigherIndex != indexOfOurNode));
-
-            do {
-                // sub one from indexOfOurNode to get the node above it
-                int g = (indexOfOurNode-1 + justHigherIndex) % (candidatesThatShareInterest.size()-1);
-                justLower.add(candidatesThatShareInterest.get(g));
-                justLowerNodesNeeded--;
-                justLowerIndex++;
-            } while((justLowerNodesNeeded > 0) && (justLowerIndex != indexOfOurNode));
-
-            view.nodesWithLowerID = justLower;
-            view.nodesWithHigherID = justHigher;
-            this.routingTable.put(subscription, view);
         }
 
+        if(candidatesThatShareInterest.isEmpty()) return bestNodes;
+
+        // So we can compute indexOfOurNode, and thus, the justLower and justHigher nodes
+        candidatesThatShareInterest.add(perspectiveNode);
+        // Order by ID
+        Collections.sort(candidatesThatShareInterest, new IDComparator());
+        int indexOfOurNode = candidatesThatShareInterest.indexOf(perspectiveNode);
+
+        RingsTopicView view = new RingsTopicView();
+        LinkedHashSet justLower = new LinkedHashSet();
+        LinkedHashSet justHigher = new LinkedHashSet<NodeProfile>();
+
+        int justHigherNodesNeeded, justHigherIndex;
+        int justLowerNodesNeeded, justLowerIndex;
+        justHigherNodesNeeded = justLowerNodesNeeded = this.MAX_VIEW_SIZE / 2;
+        justHigherIndex = justLowerIndex = 0;
+
+        do {
+            // add one to indexOfOurNode to get the node below it
+            int g = (indexOfOurNode+1 + justHigherIndex) % (candidatesThatShareInterest.size()-1);
+            justHigher.add(candidatesThatShareInterest.get(g));
+            justHigherNodesNeeded--;
+            justHigherIndex++;
+        } while((justHigherNodesNeeded > 0) && (justHigherIndex != indexOfOurNode));
+
+        do {
+            // sub one from indexOfOurNode to get the node above it
+            int g = (indexOfOurNode-1 + justHigherIndex) % (candidatesThatShareInterest.size()-1);
+            justLower.add(candidatesThatShareInterest.get(g));
+            justLowerNodesNeeded--;
+            justLowerIndex++;
+        } while((justLowerNodesNeeded > 0) && (justLowerIndex != indexOfOurNode));
+
+        bestNodes.nodesWithLowerID = justLower;
+        bestNodes.nodesWithHigherID = justHigher;
+
+        return bestNodes;
+    }
+
+    public synchronized ArrayList<NodeProfile> selectNodesToSend(PolderCastBaseNode thisNode, NodeProfile gossipNode) {
+        HashSet<ID> subscriptionsInCommon = new HashSet<ID>(thisNode.getNodeProfile().getSubscriptions().keySet());
+        subscriptionsInCommon.retainAll(gossipNode.getSubscriptions().keySet());
+
+        HashSet<NodeProfile> nodesToSend = new HashSet<NodeProfile>();
+        HashSet<NodeProfile> candidates = thisNode.getUnionOfAllViews();
+        candidates.add(thisNode.getNodeProfile()); // since we are selecting nodes to send, we add our own
+
+        for (ID subscription : subscriptionsInCommon) {
+            RingsTopicView view = this.selectBestNodesForTopic(subscription, candidates, gossipNode);
+
+            nodesToSend.addAll(view.nodesWithLowerID);
+            nodesToSend.addAll(view.nodesWithHigherID);
+        }
+
+        ArrayList<NodeProfile> listOfNodesToSend = new ArrayList<NodeProfile>(nodesToSend);
+        if(nodesToSend.size() > this.MAX_GOSSIP_LENGTH) {
+            Collections.shuffle(listOfNodesToSend, CommonState.r);
+            listOfNodesToSend = new ArrayList<NodeProfile>(listOfNodesToSend.subList(0, this.MAX_GOSSIP_LENGTH-1));
+        }
+
+        return listOfNodesToSend;
     }
 
 
