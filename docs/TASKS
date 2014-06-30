@@ -2,26 +2,13 @@ TASKS
 =====
 
 # CURRENT
-Exception in thread "main" java.lang.IllegalArgumentException: Comparison method violates its general contract!
-	at java.util.TimSort.mergeHi(TimSort.java:868)
-	at java.util.TimSort.mergeAt(TimSort.java:485)
-	at java.util.TimSort.mergeCollapse(TimSort.java:410)
-	at java.util.TimSort.sort(TimSort.java:214)
-	at java.util.TimSort.sort(TimSort.java:173)
-	at java.util.Arrays.sort(Arrays.java:659)
-	at java.util.Collections.sort(Collections.java:217)
-	at poldercast.protocols.VicinityProtocol.selectClosestNodesForNode(VicinityProtocol.java:111)
-	at poldercast.protocols.VicinityProtocol.mergeNodes(VicinityProtocol.java:133)
-	at poldercast.protocols.VicinityProtocol.processEvent(VicinityProtocol.java:87)
-	at peersim.edsim.EDSimulator.executeNext(EDSimulator.java:315)
-	at peersim.edsim.EDSimulator.nextExperiment(EDSimulator.java:361)
-	at peersim.Simulator.main(Simulator.java:193)
-
-Something to do with VicinityComparator not being transitive
+verify rings
 
 # LIST
-20m	 - verify vicinity protocol
 20m	 - verify rings protocol
+
+        need to change prioirty of topics when new nodes
+
 20m	 - make subscription relationship intializer
 20m	 - test rings protocol again
 5m+10m	 - MemoryControl - log memory consumed by routing table at end cycle, log relation between subscription size and memory
