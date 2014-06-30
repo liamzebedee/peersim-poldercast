@@ -94,15 +94,91 @@ public class RingsProtocol extends BandwidthTrackedProtocol implements CDProtoco
     }
 
     public synchronized void processEvent(Node node, int protocolID, java.lang.Object event) {
+        PolderCastBaseNode thisNode = (PolderCastBaseNode) node;
+        RingsProtocol protocol = (RingsProtocol) thisNode.getProtocol(protocolID);
 
+        NetworkMsg networkMsg = (NetworkMsg) event;
+        protocol.messageReceived(networkMsg);
+
+        // TODO bug node age is supposed to be separate from profile
+        NodeProfile sender = networkMsg.getSender().getNodeProfile();
+        HashSet<NodeProfile> view = this.getLinearView();
+        if(view.contains(sender)) sender.resetAge();
+
+        if(event instanceof GossipMsg) {
+            GossipMsg receivedGossipMsg = (GossipMsg) event;
+
+            if (receivedGossipMsg.getType() == GossipMsg.Types.GOSSIP_QUERY) {
+                protocol.mergeNodes(thisNode, receivedGossipMsg.getNodeProfiles());
+
+                HashSet<NodeProfile> nodesToSend = protocol.selectNodesToSend(thisNode, receivedGossipMsg.getSender().getNodeProfile());
+                GossipMsg msg = new GossipMsg(nodesToSend, GossipMsg.Types.GOSSIP_RESPONSE, thisNode);
+                // TODO if(thisNode.measureTopicSubscriptionLoad) thisNode.load++;
+                Util.sendMsg(thisNode, receivedGossipMsg.getSender(), msg, protocolID);
+                protocol.messageSent(msg);
+
+            } else if (receivedGossipMsg.getType() == GossipMsg.Types.GOSSIP_RESPONSE) {
+                protocol.mergeNodes(thisNode, receivedGossipMsg.getNodeProfiles());
+
+            } else {
+                throw new RuntimeException("Bad GossipMsg received by RingsProtocol");
+            }
+        } else if(event instanceof PublishMsg) {
+            PublishMsg receivedPublishMsg = (PublishMsg) event;
+
+            if(protocol.receivedEvents.contains(receivedPublishMsg.getUniqueIdentifier())) return;
+            protocol.receivedEvents.add(receivedPublishMsg.getUniqueIdentifier());
+
+            RingsTopicView ringsTopicView = protocol.routingTable.get(receivedPublishMsg.getTopic());
+            PublishMsg publishMsgToSend = new PublishMsg(receivedPublishMsg.getEvent(), receivedPublishMsg.getTopic(), thisNode);
+            HashSet<NodeProfile> nodesToPropagateEventTo = new HashSet<NodeProfile>();
+            if(ringsTopicView.contains(receivedPublishMsg.getSender().getNodeProfile())) {
+                // If the event has been received through the node’s successor (or predecessor),
+                // it is propagated down the line to its predecessor (or successor) and
+                // (F - 1) arbitrary subscribers of the topic (as sourced from Vicinity)
+                if(ringsTopicView.nodesWithHigherID.contains(receivedPublishMsg.getSender().getNodeProfile())) {
+                    // Received through successor, propagate to predecessor
+                    /*
+                     * TODO in the paper the view size is set to be 2 so we have backup nodes
+                     * TODO it's never mentioned, but I assume that if sending to one of these nodes fails
+                     * TODO we attempt to send to the next best
+                     */
+                    // TODO solution is to always check Node.isUp(), this works with churn model
+                    nodesToPropagateEventTo.add(ringsTopicView.nodesWithHigherID.iterator().next());
+                } else {
+                    // Received through predecessor, propagate to successor
+                    nodesToPropagateEventTo.add(ringsTopicView.nodesWithLowerID.iterator().next());
+                }
+
+                nodesToPropagateEventTo.addAll(protocol.getArbitrarySubscribersOfTopic(thisNode, receivedPublishMsg.getTopic(),
+                        protocol.FANOUT - 1));
+                protocol.propagateEvent(thisNode, nodesToPropagateEventTo, publishMsgToSend);
+
+            } else {
+                // If the event was received through some third node, or if it originated at the node
+                // in question, it is propagated to both the successor and the predecessor,
+                // as well as to (F - 2) arbitrary subscribers of the topic
+                nodesToPropagateEventTo.add(ringsTopicView.nodesWithHigherID.iterator().next());
+                nodesToPropagateEventTo.add(ringsTopicView.nodesWithLowerID.iterator().next());
+                nodesToPropagateEventTo.addAll(protocol.getArbitrarySubscribersOfTopic(thisNode, receivedPublishMsg.getTopic(),
+                        protocol.FANOUT - 2));
+                protocol.propagateEvent(thisNode, nodesToPropagateEventTo, publishMsgToSend);
+            }
+
+        } else {
+            throw new RuntimeException("RingsProtocol should only receive GossipMsg/PublishMsg events");
+        }
     }
 
     public void publishEvent(PolderCastBaseNode thisNode, ID topic, byte[] event) {
-
-    }
-
-    public synchronized void changeInSubscriptions(PolderCastBaseNode thisNode) {
-
+        RingsTopicView ringsTopicView = this.routingTable.get(topic);
+        PublishMsg publishMsgToSend = new PublishMsg(event, topic, thisNode);
+        HashSet<NodeProfile> nodesToPropagateEventTo = new HashSet<NodeProfile>();
+        nodesToPropagateEventTo.add(ringsTopicView.nodesWithHigherID.iterator().next());
+        nodesToPropagateEventTo.add(ringsTopicView.nodesWithLowerID.iterator().next());
+        nodesToPropagateEventTo.addAll(this.getArbitrarySubscribersOfTopic(thisNode, topic,
+                this.FANOUT - 2));
+        this.propagateEvent(thisNode, nodesToPropagateEventTo, publishMsgToSend);
     }
 
     private void bootstrapFromOtherModules(PolderCastBaseNode thisNode) {
@@ -205,7 +281,30 @@ public class RingsProtocol extends BandwidthTrackedProtocol implements CDProtoco
         }
     }
 
+    private void propagateEvent(PolderCastBaseNode thisNode, HashSet<NodeProfile> nodesToPropagateEventTo, PublishMsg publishMsgToSend) {
+        for(NodeProfile nodeToPropagateEventTo : nodesToPropagateEventTo) {
+            // TODO load if(thisNode.measureTopicPublicationLoad) thisNode.load++;
 
+            Util.sendMsg(thisNode, nodeToPropagateEventTo.getNode(), publishMsgToSend, protocolID);
+            this.messageSent(publishMsgToSend);
+        }
+    }
+
+    private HashSet<NodeProfile> getArbitrarySubscribersOfTopic(PolderCastBaseNode thisNode, ID topic, int n) {
+        ArrayList<NodeProfile> candidates = new ArrayList<NodeProfile>();
+        for(NodeProfile nodeCandidate : thisNode.getVicinityProtocol().getRoutingTableCopy()) {
+            if(nodeCandidate.getSubscriptions().keySet().contains(topic)) candidates.add(nodeCandidate);
+        }
+        Collections.shuffle(candidates, CommonState.r);
+        Iterator<NodeProfile> iter = candidates.iterator();
+        HashSet<NodeProfile> arbitrarySubscribers = new HashSet<NodeProfile>();
+        int i = 0;
+        while(iter.hasNext() && (i < n)) {
+            arbitrarySubscribers.add(iter.next());
+            i++;
+        }
+        return arbitrarySubscribers;
+    }
 
     private synchronized void removeNode(NodeProfile nodeProfile) {
         for(RingsTopicView view : this.routingTable.values()) {

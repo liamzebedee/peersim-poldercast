@@ -63,6 +63,5 @@ public class PolderCastBaseNode extends BaseNode  {
     @Override
     public void subscribe(ID topic) {
         this.nodeProfile.addSubscription(topic);
-        this.getRingsProtocol().changeInSubscriptions(this);
     }
 }
