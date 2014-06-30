@@ -3,7 +3,7 @@ NUM_TOPICS 106
 NUM_NODES 1000
 
 # parameters of periodic execution
-CYCLES 50*CYCLE
+CYCLES 10*CYCLE
 CYCLE 10 # length of a cycle
 ENDTIME CYCLES
 
@@ -57,8 +57,7 @@ protocol.rings poldercast.protocols.RingsProtocol
 }
 
 
-include.protocol transportUniformRandom cyclon vicinity
-#rings
+include.protocol transportUniformRandom cyclon vicinity rings
 
 ########################################################### INITIALIZERS SECTION
 # this initializer assigns each node an ID
@@ -75,8 +74,7 @@ init.bootstrapper WireKOut
 init.cycleScheduler CDScheduler
 {
     # list of cycle protocols separated by whitespace
-    protocol cyclon vicinity
-    #rings
+    protocol cyclon vicinity rings
 }
 
 init.subscriptionRelationshipInitializer tests.initializers.SubscriptionRelationshipInitializer
@@ -94,13 +92,11 @@ include.init poldercastIdAssigner bootstrapper cycleScheduler subscriptionRelati
 control.viewStats poldercast.controls.ViewStats
 {
     step  CYCLE
-    protocol cyclon vicinity
-    #rings
+    protocol cyclon vicinity rings
 }
 control.netStats poldercast.controls.NetStats
 {
     step  CYCLE
-    protocol cyclon vicinity
-    #rings
+    protocol cyclon vicinity rings
 }
 include.control viewStats netStats

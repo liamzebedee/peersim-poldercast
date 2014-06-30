@@ -47,7 +47,7 @@ public class PolderCastBaseNode extends BaseNode  {
         HashSet<NodeProfile> union = new HashSet<NodeProfile>();
         union.addAll(this.getCyclonProtocol().getRoutingTableCopy());
         union.addAll(this.getVicinityProtocol().getRoutingTableCopy());
-        //union.addAll(this.getRingsProtocol().getLinearView());
+        union.addAll(this.getRingsProtocol().getLinearView());
         return union;
     }
 
@@ -63,6 +63,6 @@ public class PolderCastBaseNode extends BaseNode  {
     @Override
     public void subscribe(ID topic) {
         this.nodeProfile.addSubscription(topic);
-        //this.getRingsProtocol().changeInSubscriptions(this);
+        this.getRingsProtocol().changeInSubscriptions(this);
     }
 }

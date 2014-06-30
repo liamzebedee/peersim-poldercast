@@ -39,10 +39,10 @@ public class ViewStats extends BaseControl implements Control {
             for(NodeProfile profile : node.getVicinityProtocol().getRoutingTableCopy()) {
                 out.println(" - "+profile.toString());
             }
-            /*out.println("Rings : " + node.getRingsProtocol().degree());
+            out.println("Rings : " + node.getRingsProtocol().degree());
             for(NodeProfile profile : node.getRingsProtocol().getLinearView()) {
                 out.println(" - "+profile.toString());
-            }*/
+            }
             this.out.println();
             this.out.flush();
         }
