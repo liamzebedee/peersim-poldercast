@@ -53,8 +53,7 @@ public class NodeProfile implements SizeInBits {
 
     public synchronized void addSubscription(ID topic) {
         // priority is defined as the number of nodes we need to fill the view
-        byte defaultPriority = 4; // TODO
-        this.subscriptions.put(topic, defaultPriority);
+        this.subscriptions.put(topic, RingsProtocol.MAX_VIEW_SIZE);
     }
 
     @Override
