@@ -62,4 +62,8 @@ public class NodeProfile implements SizeInBits {
         NodeProfile node = (NodeProfile) nodeProfile;
         return this.id.equals(node.id);
     }
+
+    public int compare(NodeProfile nodeB) {
+        return this.getID().id.compareTo(nodeB.getID().id);
+    }
 }

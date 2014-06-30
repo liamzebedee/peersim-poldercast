@@ -6,13 +6,11 @@ import peersim.core.Linkable;
 import peersim.core.Node;
 import peersim.edsim.EDProtocol;
 import poldercast.util.ID;
+import poldercast.util.IDComparator;
 import poldercast.util.NodeProfile;
 import poldercast.util.PolderCastBaseNode;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.Map;
+import java.util.*;
 
 public class RingsProtocol extends BandwidthTrackedProtocol implements CDProtocol, EDProtocol, Linkable {
     public Map<ID, RingsTopicView> routingTable = new HashMap<ID, RingsTopicView>();
@@ -59,18 +57,85 @@ public class RingsProtocol extends BandwidthTrackedProtocol implements CDProtoco
     }
 
     public synchronized void nextCycle(Node node, int protocolID) {
+        PolderCastBaseNode thisNode = (PolderCastBaseNode) node;
+        RingsProtocol protocol = (RingsProtocol) thisNode.getProtocol(protocolID);
 
+        if(thisNode.getNodeProfile().getSubscriptions().size() == 0) return;
+        HashSet<NodeProfile> profiles = protocol.getLinearView();
+        if(profiles.isEmpty()) protocol.bootstrapFromOtherModules(thisNode);
+        if(profiles.isEmpty()) return;
     }
 
     public synchronized void processEvent(Node node, int protocolID, java.lang.Object event) {
 
     }
 
-    public void publishEvent(PolderCastBaseNode thisNode, ID topic, byte[] event) {}
+    public void publishEvent(PolderCastBaseNode thisNode, ID topic, byte[] event) {
 
-    public synchronized void changeInSubscriptions(PolderCastBaseNode thisNode) {}
+    }
 
+    public synchronized void changeInSubscriptions(PolderCastBaseNode thisNode) {
 
+    }
+
+    private void bootstrapFromOtherModules(PolderCastBaseNode thisNode) {
+        this.mergeNodes(thisNode, new HashSet<NodeProfile>());
+    }
+
+    public synchronized void mergeNodes(PolderCastBaseNode thisNode, HashSet<NodeProfile> profiles) {
+        HashSet<NodeProfile> candidates = new HashSet<NodeProfile>();
+        candidates.addAll(profiles);
+        candidates.addAll(thisNode.getUnionOfAllViews());
+
+        candidates.remove(thisNode.getNodeProfile());
+
+        for(ID subscription : thisNode.getNodeProfile().getSubscriptions().keySet()) {
+            ArrayList<NodeProfile> candidatesThatShareInterest = new ArrayList<NodeProfile>();
+            for (NodeProfile profile : candidates) {
+                if (profile.getSubscriptions().containsKey(subscription)) {
+                    candidatesThatShareInterest.add(profile);
+                }
+            }
+
+            if(candidatesThatShareInterest.isEmpty()) continue;
+
+            // So we can compute indexOfOurNode, and thus, the justLower and justHigher nodes
+            candidatesThatShareInterest.add(thisNode.getNodeProfile());
+            // Order by ID
+            Collections.sort(candidatesThatShareInterest, new IDComparator());
+            int indexOfOurNode = candidatesThatShareInterest.indexOf(thisNode.getNodeProfile());
+
+            RingsTopicView view = new RingsTopicView();
+            LinkedHashSet justLower = new LinkedHashSet();
+            LinkedHashSet justHigher = new LinkedHashSet<NodeProfile>();
+
+            int justHigherNodesNeeded, justHigherIndex;
+            int justLowerNodesNeeded, justLowerIndex;
+            justHigherNodesNeeded = justLowerNodesNeeded = this.MAX_VIEW_SIZE / 2;
+            justHigherIndex = justLowerIndex = 0;
+
+            do {
+                // add one to indexOfOurNode to get the node below it
+                int g = (indexOfOurNode+1 + justHigherIndex) % (candidatesThatShareInterest.size()-1);
+                justHigher.add(candidatesThatShareInterest.get(g));
+                justHigherNodesNeeded--;
+                justHigherIndex++;
+            } while((justHigherNodesNeeded > 0) && (justHigherIndex != indexOfOurNode));
+
+            do {
+                // sub one from indexOfOurNode to get the node above it
+                int g = (indexOfOurNode-1 + justHigherIndex) % (candidatesThatShareInterest.size()-1);
+                justLower.add(candidatesThatShareInterest.get(g));
+                justLowerNodesNeeded--;
+                justLowerIndex++;
+            } while((justLowerNodesNeeded > 0) && (justLowerIndex != indexOfOurNode));
+
+            view.nodesWithLowerID = justLower;
+            view.nodesWithHigherID = justHigher;
+            this.routingTable.put(subscription, view);
+        }
+
+    }
 
 
 
