@@ -80,12 +80,12 @@ public class RingsProtocol extends BandwidthTrackedProtocol implements CDProtoco
                 oldestNode = profile;
         }
 
-        ArrayList<NodeProfile> nodesToSend = protocol.selectNodesToSend(thisNode, oldestNode);
-        //protocol.removeNode(oldestNode); // proactive removal to combat churn
-        //GossipMsg msg = new GossipMsg(nodesToSend, GossipMsg.Types.GOSSIP_QUERY, thisNode);
+        HashSet<NodeProfile> nodesToSend = protocol.selectNodesToSend(thisNode, oldestNode);
+        protocol.removeNode(oldestNode); // proactive removal to combat churn
+        GossipMsg msg = new GossipMsg(nodesToSend, GossipMsg.Types.GOSSIP_QUERY, thisNode);
         //if(thisNode.measureTopicSubscriptionLoad) thisNode.load++; // TODO load
-        //Util.sendMsg(thisNode, oldestNode.getNode(), msg, protocolID);
-        //protocol.messageSent(msg);
+        Util.sendMsg(thisNode, oldestNode.getNode(), msg, protocolID);
+        protocol.messageSent(msg);
     }
 
     public synchronized void processEvent(Node node, int protocolID, java.lang.Object event) {
@@ -165,7 +165,7 @@ public class RingsProtocol extends BandwidthTrackedProtocol implements CDProtoco
         return bestNodes;
     }
 
-    public synchronized ArrayList<NodeProfile> selectNodesToSend(PolderCastBaseNode thisNode, NodeProfile gossipNode) {
+    public synchronized HashSet<NodeProfile> selectNodesToSend(PolderCastBaseNode thisNode, NodeProfile gossipNode) {
         HashSet<ID> subscriptionsInCommon = new HashSet<ID>(thisNode.getNodeProfile().getSubscriptions().keySet());
         subscriptionsInCommon.retainAll(gossipNode.getSubscriptions().keySet());
 
@@ -186,14 +186,18 @@ public class RingsProtocol extends BandwidthTrackedProtocol implements CDProtoco
             listOfNodesToSend = new ArrayList<NodeProfile>(listOfNodesToSend.subList(0, this.MAX_GOSSIP_LENGTH-1));
         }
 
-        return listOfNodesToSend;
+        return new HashSet<NodeProfile>(listOfNodesToSend);
     }
 
 
 
 
 
-
+    private synchronized void removeNode(NodeProfile nodeProfile) {
+        for(RingsTopicView view : this.routingTable.values()) {
+            view.removeNode(nodeProfile);
+        }
+    }
     public void onKill() {}
     public boolean addNeighbor(Node neighbour) {
         throw new RuntimeException("We shouldn't be attempting to bootstrap the Rings module using this method");
