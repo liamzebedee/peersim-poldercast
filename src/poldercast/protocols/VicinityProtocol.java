@@ -111,6 +111,8 @@ public class VicinityProtocol extends BandwidthTrackedProtocol implements CDProt
         closestNodes.remove(node); // TODO technically we should stop this at the source - where nodeSelection is passed
         Collections.sort(closestNodes, new VicinityComparator(node, this.MAX_VIEW_SIZE));
         // Get up to 20 of the closest nodes
+        // TODO probably a bug, Vicinity module never seems to exceed 19 nodes
+        if(closestNodes.subList(0, Math.min(closestNodes.size(), maxNodes) - 1).size() == 20) System.out.println("woot");
         return new LinkedHashSet<NodeProfile>( closestNodes.subList(0, Math.min(closestNodes.size(), maxNodes) - 1 ) );
     }
 
@@ -119,7 +121,7 @@ public class VicinityProtocol extends BandwidthTrackedProtocol implements CDProt
         while (nodeProfileIterator.hasNext()) {
             NodeProfile profile = nodeProfileIterator.next();
             // Remove our profile if any
-            if (profile.getID().equals(thisNode.getNodeProfile().getID())) {
+            if (profile.equals(thisNode.getNodeProfile())) {
                 nodeProfileIterator.remove();
             }
             // Remove any duplicates before we add
@@ -131,8 +133,10 @@ public class VicinityProtocol extends BandwidthTrackedProtocol implements CDProt
         }
 
         // Consider the union of all views with these nodes
+        HashSet<NodeProfile> toSelect = thisNode.getUnionOfAllViews();
+        toSelect.addAll(profiles);
         this.routingTable = this.selectClosestNodesForNode(thisNode, thisNode.getNodeProfile(),
-                thisNode.getUnionOfAllViews(), this.MAX_VIEW_SIZE);
+                toSelect, this.MAX_VIEW_SIZE);
     }
 
     private void bootstrapFromOtherModules(PolderCastBaseNode thisNode) {
