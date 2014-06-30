@@ -11,7 +11,7 @@ import poldercast.util.*;
 import java.util.*;
 
 public class RingsProtocol extends BandwidthTrackedProtocol implements CDProtocol, EDProtocol, Linkable {
-    public Map<ID, RingsTopicView> routingTable = new HashMap<ID, RingsTopicView>();
+    public HashMap<ID, RingsTopicView> routingTable = new HashMap<ID, RingsTopicView>();
     public HashSet<Integer> receivedEvents = new HashSet<Integer>();
 
     public final int protocolID;
@@ -39,8 +39,8 @@ public class RingsProtocol extends BandwidthTrackedProtocol implements CDProtoco
         return clone;
     }
 
-    public Map<ID, RingsTopicView> getRoutingTableCopy() {
-        Map<ID, RingsTopicView> routingTableCopy = new HashMap<ID, RingsTopicView>();
+    public HashMap<ID, RingsTopicView> getRoutingTableCopy() {
+        HashMap<ID, RingsTopicView> routingTableCopy = new HashMap<ID, RingsTopicView>();
         routingTableCopy.putAll(this.routingTable);
         return routingTableCopy;
     }
@@ -57,6 +57,9 @@ public class RingsProtocol extends BandwidthTrackedProtocol implements CDProtoco
     public synchronized void nextCycle(Node node, int protocolID) {
         PolderCastBaseNode thisNode = (PolderCastBaseNode) node;
         RingsProtocol protocol = (RingsProtocol) thisNode.getProtocol(protocolID);
+
+        // Update priorities for topics
+
 
         // Increment age of all nodes
         for(RingsTopicView view : this.routingTable.values()) {
@@ -189,7 +192,12 @@ public class RingsProtocol extends BandwidthTrackedProtocol implements CDProtoco
         return new HashSet<NodeProfile>(listOfNodesToSend);
     }
 
-
+    private void updatePrioritiesForSubscriptions(NodeProfile thisNode) {
+        for(Map.Entry<ID,Byte> entry : thisNode.getSubscriptions().entrySet()) {
+            byte priority = (byte) (this.MAX_VIEW_SIZE - this.routingTable.get(entry.getKey()).degree());
+            thisNode.getSubscriptions().put(entry.getKey(), priority);
+        }
+    }
 
 
 
