@@ -1,5 +1,6 @@
 package poldercast.util;
 
+import peersim.config.Configuration;
 import poldercast.protocols.RingsProtocol;
 import poldercast.protocols.VicinityProtocol;
 
@@ -10,11 +11,11 @@ import java.util.Set;
 public class VicinityComparator implements Comparator<NodeProfile> {
     private NodeProfile perspectiveNode;
     // Priority is defined by the number of nodes one needs to fill their Rings view for that topic
-    public final byte MAX_TOPIC_PRIORITY;
+    public static final byte MAX_TOPIC_PRIORITY;
+    static { MAX_TOPIC_PRIORITY = (byte) Configuration.getInt("protocol.rings.maxViewSize"); }
 
-    public VicinityComparator(NodeProfile perspectiveNode, byte maxTopicPriority) {
+    public VicinityComparator(NodeProfile perspectiveNode) {
         this.perspectiveNode = perspectiveNode;
-        this.MAX_TOPIC_PRIORITY = maxTopicPriority;
         if(this.perspectiveNode.getSubscriptions().isEmpty()) throw new RuntimeException("Perspective node doesn't have subscriptions - shouldn't be so");
     }
 

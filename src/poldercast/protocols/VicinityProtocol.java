@@ -109,7 +109,7 @@ public class VicinityProtocol extends BandwidthTrackedProtocol implements CDProt
         ArrayList<NodeProfile> closestNodes = new ArrayList<NodeProfile>();
         closestNodes.addAll(nodeSelection);
         closestNodes.remove(node); // TODO technically we should stop this at the source - where nodeSelection is passed
-        Collections.sort(closestNodes, new VicinityComparator(node, this.MAX_VIEW_SIZE));
+        Collections.sort(closestNodes, new VicinityComparator(node));
         // Get up to 20 of the closest nodes
         // TODO probably a bug, Vicinity module never seems to exceed 19 nodes
         if(closestNodes.subList(0, Math.min(closestNodes.size(), maxNodes) - 1).size() == 20) System.out.println("woot");
