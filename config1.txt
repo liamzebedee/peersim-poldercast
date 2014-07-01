@@ -113,10 +113,12 @@ control.topicSub tests.controls.TopicSubscription
 }
 control.topicPub tests.controls.TopicPublication
 {
-    step  CYCLE
+    step  2
     protocol cyclon vicinity rings
     startingDelay 2*CYCLE
     percentageTopicActivity 0.9
+    numberOfTopicsToMeasure 5
+    thresholdNodes 0.8
 }
 include.control topicSub topicPub
 #viewStats netStats memoryStats

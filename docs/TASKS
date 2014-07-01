@@ -1,17 +1,12 @@
 TASKS
 =====
 
-# CURRENT
-log speed to subscribe to topic
-
 # LIST
     https://www.usenix.org/legacy/event/imc05/tech/full_papers/liu_hongzhou/liu_hongzhou_html/paper.html#zipf : a = 0.5
     SpiderCast: a = 0.5, 2.0
     Twitter '12: a = 2.276
 
-25m+10m	 - PublicationControl - log hit ratio of event each cycle until fin
-25m	 - ChurnControl - log proportion of nodes that have missed the event and compare with usual descension of hit ratio
-config - log relation between subscription size and memory
+config - log relation between subscription size and memory, log impact of churn on hit ratio
 
 1h	 - Scribe refactor controls for results
 1h	 - Input results into graphing software

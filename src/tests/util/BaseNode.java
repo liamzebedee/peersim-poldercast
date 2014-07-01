@@ -21,7 +21,7 @@ public abstract class BaseNode extends GeneralNode {
     public abstract void publish(ID topic, byte[] event);
     public abstract void subscribe(ID topic);
     public abstract boolean isSubscribed(ID topic);
-    public abstract boolean hasReceivedEvent(byte[] event);
+    public abstract boolean hasReceivedEvent(int eventID);
     public abstract ArrayList<ID> getSubscriptions();
 
     public abstract double getTopicPublicationLoad(ID topic);

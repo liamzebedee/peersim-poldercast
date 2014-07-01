@@ -9,6 +9,7 @@ import tests.initializers.SubscriptionRelationshipInitializer;
 import tests.util.BaseNode;
 import tests.util.Util;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -59,7 +60,6 @@ public class TopicSubscription extends BaseControl {
             out.println();
             for(int j = 0; j < Network.size(); j++) {
                 BaseNode node = (BaseNode) Network.get(i);
-                //System.out.println(node.getTopicPublicationLoad());
             }
 
             out.println("Load distribution (Gini coefficient) = "
@@ -72,7 +72,7 @@ public class TopicSubscription extends BaseControl {
                 BaseNode node = entry.getValue();
                 // Has not received event on it since last cycle, still waiting
                 if(this.speedToSubscribe.get(topic) == null) {
-                    if(node.hasReceivedEvent(this.eventData(topic))) {
+                    if(node.hasReceivedEvent(Arrays.hashCode(this.eventData(topic)))) {
                         System.out.println("boom");
                         this.speedToSubscribe.put(topic, (int) time);
                     } else {

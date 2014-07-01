@@ -73,8 +73,8 @@ public class PolderCastBaseNode extends BaseNode  {
     public boolean isSubscribed(ID topic) { return this.getNodeProfile().getSubscriptions().containsKey(topic); }
 
     @Override
-    public boolean hasReceivedEvent(byte[] event) {
-        return this.getRingsProtocol().receivedEvents.contains(java.util.Arrays.hashCode(event));
+    public boolean hasReceivedEvent(int eventID) {
+        return this.getRingsProtocol().receivedEvents.contains(eventID);
     }
 
     @Override
