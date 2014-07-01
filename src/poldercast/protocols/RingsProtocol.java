@@ -158,8 +158,12 @@ public class RingsProtocol extends BandwidthTrackedProtocol implements CDProtoco
                 // If the event was received through some third node, or if it originated at the node
                 // in question, it is propagated to both the successor and the predecessor,
                 // as well as to (F - 2) arbitrary subscribers of the topic
-                nodesToPropagateEventTo.add(ringsTopicView.nodesWithHigherID.iterator().next());
-                nodesToPropagateEventTo.add(ringsTopicView.nodesWithLowerID.iterator().next());
+                if(!ringsTopicView.nodesWithHigherID.isEmpty()) {
+                    nodesToPropagateEventTo.add(ringsTopicView.nodesWithHigherID.iterator().next());
+                }
+                if(!ringsTopicView.nodesWithLowerID.isEmpty()) {
+                    nodesToPropagateEventTo.add(ringsTopicView.nodesWithLowerID.iterator().next());
+                }
                 nodesToPropagateEventTo.addAll(protocol.getArbitrarySubscribersOfTopic(thisNode, receivedPublishMsg.getTopic(),
                         protocol.FANOUT - 2));
                 protocol.propagateEvent(thisNode, nodesToPropagateEventTo, publishMsgToSend);
@@ -170,12 +174,17 @@ public class RingsProtocol extends BandwidthTrackedProtocol implements CDProtoco
         }
     }
 
+    // TODO this could be refactored with common code above
     public void publishEvent(PolderCastBaseNode thisNode, ID topic, byte[] event) {
         RingsTopicView ringsTopicView = this.routingTable.get(topic);
         PublishMsg publishMsgToSend = new PublishMsg(event, topic, thisNode);
         HashSet<NodeProfile> nodesToPropagateEventTo = new HashSet<NodeProfile>();
-        nodesToPropagateEventTo.add(ringsTopicView.nodesWithHigherID.iterator().next());
-        nodesToPropagateEventTo.add(ringsTopicView.nodesWithLowerID.iterator().next());
+        if(!ringsTopicView.nodesWithHigherID.isEmpty()) {
+            nodesToPropagateEventTo.add(ringsTopicView.nodesWithHigherID.iterator().next());
+        }
+        if(!ringsTopicView.nodesWithLowerID.isEmpty()) {
+            nodesToPropagateEventTo.add(ringsTopicView.nodesWithLowerID.iterator().next());
+        }
         nodesToPropagateEventTo.addAll(this.getArbitrarySubscribersOfTopic(thisNode, topic,
                 this.FANOUT - 2));
         this.propagateEvent(thisNode, nodesToPropagateEventTo, publishMsgToSend);

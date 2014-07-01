@@ -2,15 +2,17 @@ TASKS
 =====
 
 # CURRENT
+log speed to subscribe to topic
 
 # LIST
     https://www.usenix.org/legacy/event/imc05/tech/full_papers/liu_hongzhou/liu_hongzhou_html/paper.html#zipf : a = 0.5
     SpiderCast: a = 0.5, 2.0
     Twitter '12: a = 2.276
-5m+10m	 - MemoryControl - log relation between subscription size and memory
-2m+2m+10m - NetworkControl - log net bandwidth consumed at end cycle, log messages sent, log irrelevant traffic stats
-25m+25m	 - SubscriptionControl - log speed to subscribe to topic, log load distribution each cycle
+
+25m+25m	 - SubscriptionControl - log load distribution each cycle
 25m+10m	 - PublicationControl - log hit ratio of event each cycle until fin, log load distribution each cycle
 25m	 - ChurnControl - log proportion of nodes that have missed the event and compare with usual descension of hit ratio
+config - log relation between subscription size and memory
+
 1h	 - Scribe refactor controls for results
 1h	 - Input results into graphing software

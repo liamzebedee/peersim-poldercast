@@ -23,7 +23,6 @@ public abstract class BaseControl implements Control {
         try {
             File f = new File("results/"+fileName);
             if(!f.exists())
-                f.mkdirs();
                 f.createNewFile();
             this.out = new PrintStream(f);
         } catch(Exception e) {

@@ -64,4 +64,15 @@ public class PolderCastBaseNode extends BaseNode  {
     public void subscribe(ID topic) {
         this.nodeProfile.addSubscription(topic);
     }
+
+    @Override
+    public boolean isSubscribed(ID topic) { return this.getNodeProfile().getSubscriptions().containsKey(topic); }
+
+    @Override
+    public boolean hasReceivedEvent(byte[] event) {
+        return this.getRingsProtocol().receivedEvents.contains(java.util.Arrays.hashCode(event));
+    }
+
+    @Override
+    public ArrayList<ID> getSubscriptions() { return new ArrayList(this.nodeProfile.getSubscriptions().keySet()); }
 }

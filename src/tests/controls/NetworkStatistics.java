@@ -15,10 +15,11 @@ public class NetworkStatistics extends BaseControl {
         if(CommonState.getTime() == CommonState.getEndTime() - Configuration.getInt("CYCLE")) {
             System.out.println("Logging NetStats");
             int n = Network.size();
-            int totalMessagesSent = 0;
-            int totalMessagesReceived = 0;
-            int totalBitsSent = 0;
-            int totalBitsRecv = 0;
+            double totalMessagesSent = 0;
+            double totalMessagesReceived = 0;
+            double totalBitsSent = 0;
+            double totalBitsRecv = 0;
+            double irrelevantTraffic = 0;
 
             for(int i=0; i<n; i++) {
                 PolderCastBaseNode node = (PolderCastBaseNode) Network.get(i);
@@ -36,6 +37,7 @@ public class NetworkStatistics extends BaseControl {
             out.println("Total messages recv = "+totalMessagesReceived);
             out.println("Total MB sent = "+totalBitsSent/8/1000/1000);
             out.println("Total MB recv = "+totalBitsRecv/8/1000/1000);
+            out.println("Irrelevant traffic = "+irrelevantTraffic);
         }
 
         // Measure how much network bandwidth is consumed in terms of megabytes sent and received
