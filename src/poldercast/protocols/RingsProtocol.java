@@ -88,7 +88,7 @@ public class RingsProtocol extends BandwidthTrackedProtocol implements CDProtoco
         HashSet<NodeProfile> nodesToSend = protocol.selectNodesToSend(thisNode, oldestNode);
         protocol.removeNode(oldestNode); // proactive removal to combat churn
         GossipMsg msg = new GossipMsg(nodesToSend, GossipMsg.Types.GOSSIP_QUERY, thisNode);
-        //if(thisNode.measureTopicSubscriptionLoad) thisNode.load++; // TODO load
+        thisNode.topicSubscriptionLoad++;
         Util.sendMsg(thisNode, oldestNode.getNode(), msg, protocolID);
         protocol.messageSent(msg);
     }
@@ -113,7 +113,7 @@ public class RingsProtocol extends BandwidthTrackedProtocol implements CDProtoco
 
                 HashSet<NodeProfile> nodesToSend = protocol.selectNodesToSend(thisNode, receivedGossipMsg.getSender().getNodeProfile());
                 GossipMsg msg = new GossipMsg(nodesToSend, GossipMsg.Types.GOSSIP_RESPONSE, thisNode);
-                // TODO if(thisNode.measureTopicSubscriptionLoad) thisNode.load++;
+                thisNode.topicSubscriptionLoad++;
                 Util.sendMsg(thisNode, receivedGossipMsg.getSender(), msg, protocolID);
                 protocol.messageSent(msg);
 
@@ -292,8 +292,7 @@ public class RingsProtocol extends BandwidthTrackedProtocol implements CDProtoco
 
     private void propagateEvent(PolderCastBaseNode thisNode, HashSet<NodeProfile> nodesToPropagateEventTo, PublishMsg publishMsgToSend) {
         for(NodeProfile nodeToPropagateEventTo : nodesToPropagateEventTo) {
-            // TODO load if(thisNode.measureTopicPublicationLoad) thisNode.load++;
-
+            thisNode.topicPublicationLoad++;
             Util.sendMsg(thisNode, nodeToPropagateEventTo.getNode(), publishMsgToSend, protocolID);
             this.messageSent(publishMsgToSend);
         }

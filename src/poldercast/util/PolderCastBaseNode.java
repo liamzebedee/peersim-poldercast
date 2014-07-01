@@ -15,6 +15,8 @@ import java.util.HashSet;
 
 public class PolderCastBaseNode extends BaseNode  {
     private NodeProfile nodeProfile;
+    public double topicPublicationLoad = 0;
+    public double topicSubscriptionLoad = 0;
 
     public PolderCastBaseNode(String configPrefix) {
         super(configPrefix);
@@ -75,4 +77,14 @@ public class PolderCastBaseNode extends BaseNode  {
 
     @Override
     public ArrayList<ID> getSubscriptions() { return new ArrayList(this.nodeProfile.getSubscriptions().keySet()); }
+
+    @Override
+    public double getTopicSubscriptionLoad() {
+        return topicSubscriptionLoad;
+    }
+
+    @Override
+    public double getTopicPublicationLoad() {
+        return topicPublicationLoad;
+    }
 }

@@ -6,6 +6,7 @@ import peersim.core.Network;
 import poldercast.util.ID;
 import tests.initializers.SubscriptionRelationshipInitializer;
 import tests.util.BaseNode;
+import tests.util.Util;
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -54,6 +55,10 @@ public class TopicSubscription extends BaseControl {
                 out.println(SubscriptionRelationshipInitializer.subscriptionToFrequency[i+1] + " | " + entry.getValue());
                 i++;
             }
+            out.println();
+
+            out.println("Load distribution (Gini coefficient) = "
+                    + Util.giniCoefficient(Network.size(), Util.getTopicSubscriptionLoadMatrix()));
 
         } else if(time > this.STARTING_DELAY) {
             // Check if node has received event on topic yet
