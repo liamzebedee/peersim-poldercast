@@ -24,6 +24,6 @@ public abstract class BaseNode extends GeneralNode {
     public abstract boolean hasReceivedEvent(byte[] event);
     public abstract ArrayList<ID> getSubscriptions();
 
-    public abstract double getTopicPublicationLoad();
+    public abstract double getTopicPublicationLoad(ID topic);
     public abstract double getTopicSubscriptionLoad();
 }

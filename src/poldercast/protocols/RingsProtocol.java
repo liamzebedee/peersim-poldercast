@@ -292,7 +292,7 @@ public class RingsProtocol extends BandwidthTrackedProtocol implements CDProtoco
 
     private void propagateEvent(PolderCastBaseNode thisNode, HashSet<NodeProfile> nodesToPropagateEventTo, PublishMsg publishMsgToSend) {
         for(NodeProfile nodeToPropagateEventTo : nodesToPropagateEventTo) {
-            thisNode.topicPublicationLoad++;
+            thisNode.incrementTopicPublicationLoad(publishMsgToSend.getTopic(), 1);
             Util.sendMsg(thisNode, nodeToPropagateEventTo.getNode(), publishMsgToSend, protocolID);
             this.messageSent(publishMsgToSend);
         }

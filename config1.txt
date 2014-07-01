@@ -1,9 +1,9 @@
 NUM_BOOTSTRAP_NODES 4
-NUM_TOPICS 400
+NUM_TOPICS 100
 NUM_NODES 10000
 
 # parameters of periodic execution
-CYCLES 42*CYCLE
+CYCLES 14*CYCLE
 CYCLE 10 # length of a cycle
 ENDTIME CYCLES
 
@@ -111,4 +111,12 @@ control.topicSub tests.controls.TopicSubscription
     startingDelay 10*CYCLE
     numberOfTopTopicsToRecord 5
 }
-include.control viewStats netStats memoryStats topicSub
+control.topicPub tests.controls.TopicPublication
+{
+    step  CYCLE
+    protocol cyclon vicinity rings
+    startingDelay 2*CYCLE
+    percentageTopicActivity 0.9
+}
+include.control topicSub topicPub
+#viewStats netStats memoryStats

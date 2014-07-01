@@ -9,8 +9,7 @@ log speed to subscribe to topic
     SpiderCast: a = 0.5, 2.0
     Twitter '12: a = 2.276
 
-25m+25m	 - SubscriptionControl - log load distribution each cycle
-25m+10m	 - PublicationControl - log hit ratio of event each cycle until fin, log load distribution each cycle
+25m+10m	 - PublicationControl - log hit ratio of event each cycle until fin
 25m	 - ChurnControl - log proportion of nodes that have missed the event and compare with usual descension of hit ratio
 config - log relation between subscription size and memory
 

@@ -4,6 +4,7 @@ import peersim.config.Configuration;
 import peersim.core.CommonState;
 import peersim.core.Network;
 import poldercast.util.ID;
+import poldercast.util.PolderCastBaseNode;
 import tests.initializers.SubscriptionRelationshipInitializer;
 import tests.util.BaseNode;
 import tests.util.Util;
@@ -42,7 +43,7 @@ public class TopicSubscription extends BaseControl {
 
             for(int i = 0; i < NUMBER_OF_TOP_TOPICS_TO_RECORD; i++) {
                 ID topic = SubscriptionRelationshipInitializer.subscriptions[i+1]; // starts at index 1
-                BaseNode node = this.getRandomNodeForTopic(topic, null);
+                BaseNode node = Util.getRandomNodeForTopic(topic, null);
                 topicsAndNodes.put(topic, node);
                 speedToSubscribe.put(topic, null);
             }
@@ -56,6 +57,10 @@ public class TopicSubscription extends BaseControl {
                 i++;
             }
             out.println();
+            for(int j = 0; j < Network.size(); j++) {
+                BaseNode node = (BaseNode) Network.get(i);
+                //System.out.println(node.getTopicPublicationLoad());
+            }
 
             out.println("Load distribution (Gini coefficient) = "
                     + Util.giniCoefficient(Network.size(), Util.getTopicSubscriptionLoadMatrix()));
@@ -72,7 +77,7 @@ public class TopicSubscription extends BaseControl {
                         this.speedToSubscribe.put(topic, (int) time);
                     } else {
                         // no, send out events from random node
-                        BaseNode randomNode = getRandomNodeForTopic(topic, node);
+                        BaseNode randomNode = Util.getRandomNodeForTopic(topic, node);
                         randomNode.publish(topic, this.eventData(topic));
                     }
                 }
@@ -82,14 +87,4 @@ public class TopicSubscription extends BaseControl {
         return false;
     }
 
-
-
-    private BaseNode getRandomNodeForTopic(ID topic, BaseNode excludedNode) {
-        for(int i = 0; i<Network.size(); i++) {
-            BaseNode node = (BaseNode) Network.get(i);
-            if(node == excludedNode) continue;
-            if(node.isSubscribed(topic)) return node;
-        }
-        throw new RuntimeException("No subscribers");
-    }
 }

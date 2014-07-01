@@ -15,11 +15,12 @@ import java.util.HashSet;
 
 public class PolderCastBaseNode extends BaseNode  {
     private NodeProfile nodeProfile;
-    public double topicPublicationLoad = 0;
-    public double topicSubscriptionLoad = 0;
+    public HashMap<ID, Double> topicPublicationLoad = new HashMap<poldercast.util.ID, Double>();
+    public double topicSubscriptionLoad = 1;
 
     public PolderCastBaseNode(String configPrefix) {
         super(configPrefix);
+
     }
 
     public void initModules() {
@@ -65,6 +66,7 @@ public class PolderCastBaseNode extends BaseNode  {
     @Override
     public void subscribe(ID topic) {
         this.nodeProfile.addSubscription(topic);
+        this.topicPublicationLoad.put(topic, 1.0);
     }
 
     @Override
@@ -84,7 +86,11 @@ public class PolderCastBaseNode extends BaseNode  {
     }
 
     @Override
-    public double getTopicPublicationLoad() {
-        return topicPublicationLoad;
+    public double getTopicPublicationLoad(ID topic) {
+        return topicPublicationLoad.get(topic);
+    }
+
+    public void incrementTopicPublicationLoad(ID topic, double val) {
+        this.topicPublicationLoad.put(topic, this.topicPublicationLoad.get(topic)+val);
     }
 }
